@@ -39,7 +39,28 @@ export const session = {
     memory = null;
     write(sessionStorage, TAB_KEY, null);
   },
+  // when this tab's sign-in runs out (ms since epoch), read from the token itself; null if unknown
+  expiresAt() {
+    try {
+      const part = memory.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const exp = JSON.parse(atob(part)).exp;
+      return exp ? exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  },
+  // the sign-in ran out (or was revoked): forget it and tell whoever listens (AuthProvider)
+  expire() {
+    if (!memory) return;
+    this.clear();
+    for (const fn of listeners) fn();
+  },
+  onExpire(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  },
 };
+const listeners = new Set();
 
 // Where the API lives. Empty in development (Vite proxies /api); in production set VITE_API_URL to the
 // server's address, e.g. https://swol-media-api.onrender.com

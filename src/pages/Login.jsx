@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { LOGO_SRC } from '../components/Logo.jsx';
 
@@ -10,7 +10,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState('');
+  const [params] = useSearchParams();
+  const [error, setError] = useState(params.get('expired') ? 'You were signed out after 12 hours. Please sign in again.' : '');
   const [busy, setBusy] = useState(false);
 
   // This tab may already be signed in — offer to continue, or sign in with another account

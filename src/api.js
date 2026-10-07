@@ -6,12 +6,22 @@ async function request(path, { method = 'GET', body } = {}) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
   if (session.token()) headers.Authorization = `Bearer ${session.token()}`;
-  const res = await fetch(`${BASE}/api${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}/api${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // the request never got an answer: server asleep/down, offline, or this website isn't allowed by the API (CORS)
+    const err = new Error('Can’t reach the Swol Media server right now. If it was idle it may be waking up — try again in a minute.');
+    err.status = 0;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
+  // signed in, but the server no longer accepts this sign-in (12 hours passed, password reset, account disabled)
+  if (res.status === 401 && headers.Authorization && path !== '/auth/me') session.expire();
   if (!res.ok) {
     const err = new Error(data.message || `Request failed (${res.status})`);
     err.status = res.status;

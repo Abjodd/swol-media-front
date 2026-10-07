@@ -6,10 +6,11 @@ dist/
 dist-ssr/
 .vite/
 
-# environment (keep the example)
+# environment — .env.production only holds the public API address, so it is committed
 .env
 .env.*
 !.env.example
+!.env.production
 
 # Vercel
 .vercel
