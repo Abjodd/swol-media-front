@@ -1505,3 +1505,7 @@ html:has(.app), body:has(.app) { background: #f3f3f2; }
 .sw-price b { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
 .sw-price.is-tbc { background: var(--well); color: var(--ink); }
 .sw-price.is-tbc b { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+
+.sw-tags .sw-fetching { display: inline-flex; align-items: center; gap: 6px; border-style: dashed; }
+.sw-tags .sw-fetching::before { content: ''; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: sw-spin 0.8s linear infinite; }
+@keyframes sw-spin { to { transform: rotate(360deg); } }

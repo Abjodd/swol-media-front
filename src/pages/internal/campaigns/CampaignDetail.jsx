@@ -65,6 +65,17 @@ export default function CampaignDetail() {
         setData((prev) => prev && { ...prev, item: { ...prev.item, pipeline: d.pipeline } });
       })
       .catch((e) => toast(e.message, true));
+  // while Instagram lookups are still running for creators on this page, refresh every few seconds
+  const polls = useRef(0);
+  const waitingIg = (creators || []).some((s) => s.creator?.ig?.status === 'queued');
+  useEffect(() => {
+    if (!waitingIg || polls.current > 150) return undefined;
+    const t = setTimeout(() => {
+      polls.current += 1;
+      loadCreators();
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [creators, waitingIg]);
   useEffect(() => {
     load();
     loadCreators();
@@ -535,7 +546,6 @@ export default function CampaignDetail() {
             loadCreators();
             load();
             // photos and Instagram numbers arrive in the background — refresh a few times
-            if (ig.queued) [6000, 15000, 35000].forEach((ms) => setTimeout(loadCreators, ms));
           }}
         />
       )}

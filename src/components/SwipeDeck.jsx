@@ -28,23 +28,25 @@ export function CreatorPhoto({ creator, className = '' }) {
   );
 }
 
-const stat = (n) => (n ? fmtCompact(n) : '—');
-const er = (k) => (k.engagementRate ? `${Number(k.engagementRate).toFixed(1).replace(/\.0$/, '')}%` : '—');
+// numbers fetched from Instagram show a real 0 as "0"; unknown numbers show "—"
+const stat = (n, known) => (n ? fmtCompact(n) : known ? '0' : '—');
+const er = (k) => (k.engagementRate ? `${Number(k.engagementRate).toFixed(1).replace(/\.0$/, '')}%` : k.ig?.fetchedAt && k.followers ? '0%' : '—');
+const fetched = (k) => Boolean(k.ig?.fetchedAt);
 export const creatorStats = (k) => [
-  ['Followers', stat(k.followers)],
+  ['Followers', stat(k.followers, fetched(k))],
   ['Avg views', stat(k.avgViews)],
-  ['Avg likes', stat(k.avgLikes)],
+  ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
   ['Engagement', er(k)],
 ];
 // the longer list for the back of the card
 export const creatorStatsFull = (k) => [
-  ['Followers', stat(k.followers)],
-  ['Following', stat(k.following)],
+  ['Followers', stat(k.followers, fetched(k))],
+  ['Following', stat(k.following, fetched(k))],
   ['Avg views', stat(k.avgViews)],
-  ['Avg likes', stat(k.avgLikes)],
-  ['Avg comments', stat(k.avgComments)],
+  ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
+  ['Avg comments', stat(k.avgComments, fetched(k) && k.ig?.sampled > 0)],
   ['Engagement', er(k)],
-  ...(k.ig?.posts ? [['Posts', stat(k.ig.posts)]] : []),
+  ...(k.ig?.fetchedAt ? [['Posts', stat(k.ig.posts, true)]] : []),
 ];
 
 // short labels from the Instagram lookup: category, account type, post count
@@ -199,6 +201,11 @@ function Card({ sub, depth, onGone, flingRef, flipRef, back, teach, onStart, act
             ))}
           </dl>
           <div className="sw-more">
+            {k.ig?.status === 'queued' && (
+              <p className="sw-tags">
+                <span className="sw-fetching">Fetching Instagram details…</span>
+              </p>
+            )}
             {igTags(k).length > 0 && (
               <p className="sw-tags">
                 {igTags(k).map((t) => (

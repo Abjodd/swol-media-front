@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -27,6 +27,17 @@ export default function VendorCampaignDetail() {
       .listCampaignCreators(id)
       .then((d) => setCreators(d.items))
       .catch((e) => toast(e.message, true));
+  // while Instagram lookups are still running for creators on this page, refresh every few seconds
+  const polls = useRef(0);
+  const waitingIg = (creators || []).some((s) => s.creator?.ig?.status === 'queued');
+  useEffect(() => {
+    if (!waitingIg || polls.current > 150) return undefined;
+    const t = setTimeout(() => {
+      polls.current += 1;
+      loadCreators();
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [creators, waitingIg]);
   useEffect(() => {
     load();
     loadCreators();
@@ -151,7 +162,6 @@ export default function VendorCampaignDetail() {
             toast(`${fmtNum(d.added)} creator${d.added === 1 ? '' : 's'} added${d.skipped.length ? ` · ${d.skipped.length} skipped` : ''}${d.instagram?.queued ? ' · fetching their Instagram details' : ''}`);
             loadCreators();
             load();
-            if (d.instagram?.queued) [6000, 15000, 35000].forEach((ms) => setTimeout(loadCreators, ms));
           }}
         />
       )}
