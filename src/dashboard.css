@@ -1509,3 +1509,70 @@ html:has(.app), body:has(.app) { background: #f3f3f2; }
 .sw-tags .sw-fetching { display: inline-flex; align-items: center; gap: 6px; border-style: dashed; }
 .sw-tags .sw-fetching::before { content: ''; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: sw-spin 0.8s linear infinite; }
 @keyframes sw-spin { to { transform: rotate(360deg); } }
+
+/* ── Add creators · pricing step ─────────────────────────────────────────── */
+.pr { display: grid; gap: 22px; }
+.pr-head h3 { margin: 0 0 4px; font-family: var(--display); font-size: 20px; letter-spacing: -0.02em; }
+.pr-head p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.pr-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.pr-opt { position: relative; display: grid; align-content: start; gap: 8px; padding: 18px 18px 20px; text-align: left; border: 1.5px solid var(--line); border-radius: 18px; background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.pr-opt:hover { border-color: #bdbdbd; transform: translateY(-1px); }
+.pr-opt.on { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(10,10,10,.08); }
+.pr-opt strong { font-size: 15.5px; }
+.pr-opt > span:not(.pr-ic) { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.pr-ic { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: var(--well); }
+.pr-opt.on .pr-ic { background: var(--ink); color: #fff; }
+.pr-dot { position: absolute; top: 16px; right: 16px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #c8c8c8; }
+.pr-opt.on .pr-dot { border: 5px solid var(--ink); }
+.pr-cfg { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: var(--well); animation: pr-in .25s ease; }
+@keyframes pr-in { from { opacity: 0; transform: translateY(4px); } }
+.pr-cfg .fx { max-width: 360px; }
+.pr-formula { display: grid; gap: 8px; }
+.pr-frac { display: inline-grid; justify-self: start; text-align: center; font-weight: 600; font-size: 14px; }
+.pr-frac span:first-child { padding: 0 10px 6px; border-bottom: 1.5px solid var(--ink); }
+.pr-frac span:last-child { padding: 6px 10px 0; }
+.pr-formula small { color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
+.pr-slabs { display: grid; gap: 8px; }
+.pr-slab { display: grid; grid-template-columns: 1fr 1fr 1fr 34px; gap: 8px; align-items: center; }
+.pr-slab input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font: inherit; }
+.pr-slab-h span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.pr-add { justify-self: start; }
+.pr-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.pr-sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.pr-sum em { font-style: normal; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
+.pr-chosen { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 16px; border-radius: 14px; background: var(--well); font-size: 13.5px; }
+.pr-chosen > span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.pr-chosen b { font-weight: 600; }
+/* pricing tag under a cost in the campaign tables */
+.cost-tag { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+.cost-tag.wait { color: var(--ink-2); font-style: italic; text-transform: none; letter-spacing: 0; font-weight: 500; }
+@media (max-width: 760px) {
+  .pr-opts { grid-template-columns: 1fr; }
+  .pr-slab { grid-template-columns: 1fr 1fr 1fr 30px; gap: 6px; }
+}
+
+/* editable location cells in the campaign tables */
+.place-btn { max-width: 100%; padding: 4px 8px; margin: -4px -8px; border: 1px dashed transparent; border-radius: 8px; background: none; font: inherit; color: inherit; text-align: left; cursor: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color .15s, background .15s; }
+.place-btn:hover { border-color: var(--line-2); background: #fff; }
+.place-btn.empty { color: var(--mute); font-size: 12.5px; }
+.place-in { width: 100%; min-width: 0; }
+.sh-note { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--well); font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+
+.pr-slab input.pr-auto { background: transparent; border-style: dashed; color: var(--ink-2); cursor: default; }
+.pr-slab input.pr-auto:focus { outline: none; box-shadow: none; }
+.pr-toggle { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid var(--line); cursor: pointer; }
+.pr-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.pr-switch { flex: none; position: relative; width: 38px; height: 22px; margin-top: 1px; border-radius: 999px; background: #d4d4d4; transition: background .2s; }
+.pr-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .2s; }
+.pr-toggle input:checked + .pr-switch { background: var(--ink); }
+.pr-toggle input:checked + .pr-switch::after { transform: translateX(16px); }
+.pr-toggle input:focus-visible + .pr-switch { box-shadow: 0 0 0 3px rgba(10,10,10,.15); }
+.pr-toggle b { display: block; font-size: 14px; font-weight: 600; }
+.pr-toggle small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+.pr .pr-toggle { display: flex; flex-direction: row; align-items: flex-start; text-transform: none; letter-spacing: normal; font-size: 14px; font-weight: 400; color: var(--ink); margin: 0; }
+.pr .pr-toggle b { text-transform: none; letter-spacing: normal; color: var(--ink); }
+.pr .pr-toggle small { text-transform: none; letter-spacing: normal; font-weight: 400; }
+
+.pr-slab.is-above input:not(.pr-auto) { border-color: var(--ink); }
+.pr-lock { display: grid; place-items: center; width: 34px; height: 34px; color: var(--mute); }

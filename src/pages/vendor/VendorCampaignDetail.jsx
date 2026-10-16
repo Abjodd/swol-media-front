@@ -149,7 +149,7 @@ export default function VendorCampaignDetail() {
       {creators === null ? (
         <div className="skel" style={{ height: 200 }} />
       ) : (
-        <CreatorsStage stage="vendor" items={creators} campaignName={c.name} onMove={async () => false} onAdd={closed ? null : () => setAdding(true)} />
+        <CreatorsStage stage="vendor" items={creators} campaignId={c._id} campaignName={c.name} toast={toast} onMove={async () => false} onAdd={closed ? null : () => setAdding(true)} />
       )}
 
       {adding && (

@@ -101,6 +101,8 @@ export const api = {
   listCampaignCreators: (id) => request(`/campaigns/${id}/creators`),
   addCampaignCreators: (id, data) => request(`/campaigns/${id}/creators`, { method: 'POST', body: data }),
   moveCampaignCreators: (id, ids, status, note) => request(`/campaigns/${id}/creators/status`, { method: 'PATCH', body: { ids, status, note } }),
+  pricingDefault: (id) => request(`/campaigns/${id}/creators/pricing-default`),
+  setCreatorLocation: (id, sid, body) => request(`/campaigns/${id}/creators/${sid}/location`, { method: 'PATCH', body }),
   setCreatorCost: (id, sid, data) => request(`/campaigns/${id}/creators/${sid}/cost`, { method: 'PATCH', body: data }),
   removeCampaignCreator: (id, sid) => request(`/campaigns/${id}/creators/${sid}`, { method: 'DELETE' }),
   // creator database

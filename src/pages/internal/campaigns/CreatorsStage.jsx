@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../api.js';
 import Icon from '../../../components/Icon.jsx';
 import { CreatorPhoto, Verified } from '../../../components/SwipeDeck.jsx';
@@ -211,7 +211,8 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
                   {fmtCompact(c.followers)}
                 </span>
                 <span className="cs-cell" data-label={stage === 'vendor' ? 'Your cost' : 'Cost'}>
-                  {stage === 'vendor' ? <b className="cost-v">{fmtINR(s.vendorCost?.amount)}</b> : <MoneyCell sub={s} campaignId={campaignId} field="vendorCost" toast={toast} />}
+                  <MoneyCell sub={s} campaignId={campaignId} field="vendorCost" toast={toast} />
+                  <PriceTag sub={s} />
                 </span>
                 {stage !== 'vendor' && (
                   <span className="cs-cell" data-label="Client cost">
@@ -225,13 +226,13 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
                   </span>
                 )}
                 <span className="cs-cell" data-label="State">
-                  {c.state || '—'}
+                  <PlaceCell sub={s} field="state" campaignId={campaignId} toast={toast} />
                 </span>
                 <span className="cs-cell" data-label="City">
-                  {c.city || '—'}
+                  <PlaceCell sub={s} field="city" campaignId={campaignId} toast={toast} />
                 </span>
                 <span className="cs-cell" data-label="District">
-                  {c.district || '—'}
+                  <PlaceCell sub={s} field="district" campaignId={campaignId} toast={toast} />
                 </span>
                 <span className="cs-cell cs-genre" data-label="Genre">
                   {c.categories?.length ? c.categories.join(', ') : '—'}
@@ -279,8 +280,69 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
 }
 
 // One editable amount — the vendor's cost or the final client cost. Click to change (internal only).
+// State / City / District — click to type, Enter or click away to save (saved on the creator)
+const PLACE_LABEL = { state: 'State', city: 'City', district: 'District' };
+function PlaceCell({ sub, field, campaignId, toast }) {
+  const [value, setValue] = useState(sub.creator[field] || '');
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setValue(sub.creator[field] || ''), [sub.creator[field]]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const save = async () => {
+    const next = val.trim();
+    if (next === value) return setEditing(false);
+    setSaving(true);
+    try {
+      const d = await api.setCreatorLocation(campaignId, sub._id, { [field]: next });
+      setValue(d[field]);
+      sub.creator[field] = d[field]; // keep the row's data in step (search, cards)
+      setEditing(false);
+    } catch (e) {
+      toast?.(e.message, true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!campaignId) return value || '—';
+  if (editing)
+    return (
+      <input
+        className="cost-in place-in"
+        autoFocus
+        value={val}
+        disabled={saving}
+        placeholder={PLACE_LABEL[field]}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => (e.key === 'Enter' ? save() : e.key === 'Escape' ? setEditing(false) : null)}
+      />
+    );
+  return (
+    <button type="button" className={`place-btn ${value ? '' : 'empty'}`} onClick={() => (setVal(value), setEditing(true))} title={`Click to ${value ? 'change' : 'add'} the ${PLACE_LABEL[field].toLowerCase()}`}>
+      {value || `+ ${PLACE_LABEL[field]}`}
+    </button>
+  );
+}
+
+// how this creator's cost was set, when it came from a bucket or slabs
+function PriceTag({ sub }) {
+  const p = sub.pricing;
+  if (!p || p.mode === 'manual') return null;
+  if (p.pending) return <small className="cost-tag wait">waiting for followers</small>;
+  return (
+    <small className="cost-tag" title={sub.vendorCost?.text || ''}>
+      {p.mode === 'bucket' ? 'Bucket share' : 'Slab'}
+      {p.locked ? ' · edited' : ''}
+    </small>
+  );
+}
+
 function MoneyCell({ sub, campaignId, field, toast }) {
   const [amount, setAmount] = useState(sub[field]?.amount || 0);
+  // bucket / slab costs change when follower counts arrive — follow the latest value
+  useEffect(() => setAmount(sub[field]?.amount || 0), [sub[field]?.amount]); // eslint-disable-line react-hooks/exhaustive-deps
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState('');
   const [saving, setSaving] = useState(false);
@@ -315,10 +377,10 @@ function MoneyCell({ sub, campaignId, field, toast }) {
         onKeyDown={(e) => (e.key === 'Enter' ? save() : e.key === 'Escape' ? setEditing(false) : null)}
       />
     );
-  if (!amount && isClient)
+  if (!amount)
     return (
       <button type="button" className="cost-add" onClick={() => (setVal(''), setEditing(true))}>
-        + Add client cost
+        {isClient ? '+ Add client cost' : '+ Add cost'}
       </button>
     );
   return (
