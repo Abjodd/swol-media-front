@@ -8,6 +8,7 @@ import Avatar from '../components/Avatar.jsx';
 import PillNav from '../components/PillNav.jsx';
 import UploadTray from '../components/UploadTray.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
+import ErrorBoundary from '../components/ErrorBoundary.jsx';
 import '../dashboard.css';
 
 const PROFILE_TAB = { path: 'profile', label: 'Profile', icon: 'user', subtitle: 'Your details, photo and password' };
@@ -28,9 +29,14 @@ export default function DashboardLayout({ dashboard }) {
   const current = [...tabs, PROFILE_TAB].find((t) => t.path === section) || tabs[0];
   const isSubPage = pathname.split('/').filter(Boolean).length > 2;
 
-  useEffect(() => setMenu(false), [pathname]);
+  useEffect(() => {
+    setMenu(false);
+  }, [pathname]);
   // a new page starts at the top (switching tabs inside a page — ?tab=… — keeps the scroll position)
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // (braces: some browsers / extensions make scrollTo return a promise, and React would treat it as a cleanup)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   // the browser tab says where you are
   useEffect(() => {
     document.title = `${isSubPage ? `${current.label} · ` : current.label ? `${current.label} · ` : ''}Swol Media`;
@@ -129,7 +135,9 @@ export default function DashboardLayout({ dashboard }) {
           {current.subtitle && !isSubPage && <p className="page-sub">{current.subtitle}</p>}
         </div>
         <Suspense fallback={<div className="page"><div className="skel" style={{ height: 180 }} /><div className="skel" style={{ height: 320 }} /></div>}>
-          <Outlet />
+          <ErrorBoundary resetKey={pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </Suspense>
       </main>
       <UploadTray campaignPath="/dashboard/campaigns" />

@@ -17,7 +17,8 @@ export function Num({ value = 0, format = fmtNum, ms = 900 }) {
     const start = from.current;
     if (start === to || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       from.current = to;
-      return setShown(to);
+      setShown(to);
+      return undefined;
     }
     let raf;
     const t0 = performance.now();
@@ -317,7 +318,9 @@ export const fmtLakh = (n) => {
 export function useShowMore(list, { step = 60, resetKey = '' } = {}) {
   const [limit, setLimit] = useState(step);
   const ref = useRef(null);
-  useEffect(() => setLimit(step), [resetKey, step]);
+  useEffect(() => {
+    setLimit(step);
+  }, [resetKey, step]);
   const more = list.length > limit;
   useEffect(() => {
     const el = ref.current;

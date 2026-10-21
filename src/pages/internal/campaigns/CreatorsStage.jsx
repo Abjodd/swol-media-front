@@ -174,7 +174,9 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
   const [, , allowed, pass] = view.filters?.find(([k]) => k === filter) || [];
   // per-column filters: { name, followers, cost, price, margin, vendor, state, city, district, genre, status }
   const [cols, setCols] = useState({});
-  useEffect(() => setCols({}), [stage]);
+  useEffect(() => {
+    setCols({});
+  }, [stage]);
   const setCol = (k) => (v) => (setCols((f) => ({ ...f, [k]: v })), setPicked(new Set()));
   const colCount = Object.values(cols).filter(Boolean).length;
   const dcols = useDeferredValue(cols);
@@ -478,7 +480,9 @@ function PlaceCell({ sub, field, campaignId, toast }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState('');
   const [saving, setSaving] = useState(false);
-  useEffect(() => setValue(sub.creator[field] || ''), [sub.creator[field]]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setValue(sub.creator[field] || '');
+  }, [sub.creator[field]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     const next = val.trim();
@@ -547,7 +551,9 @@ function Margin({ sub }) {
 function MoneyCell({ sub, campaignId, field, toast, onSaved }) {
   const [amount, setAmount] = useState(sub[field]?.amount || 0);
   // bucket / slab costs change when follower counts arrive — follow the latest value
-  useEffect(() => setAmount(sub[field]?.amount || 0), [sub[field]?.amount]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setAmount(sub[field]?.amount || 0);
+  }, [sub[field]?.amount]); // eslint-disable-line react-hooks/exhaustive-deps
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState('');
   const [saving, setSaving] = useState(false);

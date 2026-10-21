@@ -242,3 +242,13 @@ html, body { background: #000; }
 .signin-alt::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 0.35s ease; }
 .signin-alt:hover { color: #fff; }
 .signin-alt:hover::after { transform: scaleX(1); }
+
+/* a screen that crashed (ErrorBoundary) — never a blank page */
+.crash { display: grid; place-items: center; padding: 48px 16px; }
+.crash.full { min-height: 100dvh; background: #f3f3f2; }
+.crash-box { width: min(460px, 100%); display: grid; gap: 10px; padding: 28px; border-radius: 18px; background: #fff; border: 1px solid rgb(10 10 10 / 0.1); box-shadow: 0 20px 50px -24px rgb(0 0 0 / 0.3); color: #0a0a0a; font-family: 'Sora', system-ui, sans-serif; }
+.crash-box strong { font-size: 18px; }
+.crash-box p { margin: 0; font-size: 14px; color: #5c5c5c; line-height: 1.5; }
+.crash-box code { display: block; padding: 10px 12px; border-radius: 10px; background: rgb(10 10 10 / 0.05); font-size: 12px; color: #2a2a2a; white-space: pre-wrap; word-break: break-word; }
+.crash-acts { display: flex; gap: 8px; margin-top: 6px; }
+.crash .btn.primary { background: #0a0a0a; }

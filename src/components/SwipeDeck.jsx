@@ -29,7 +29,9 @@ export function CreatorPhoto({ creator, className = '' }) {
   const loading = isFetching(creator) && !creator.avatarUrl;
   const src = loading ? '' : photoFor(creator);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
   if (loading) return <div className={`cph ${className} is-loading`} aria-label="Loading photo" />;
   return (
     <div className={`cph ${className} ${!src || failed ? 'is-empty' : ''}`}>

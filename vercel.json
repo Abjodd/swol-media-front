@@ -11,6 +11,15 @@
   ],
   "headers": [
     {
+      "source": "/((?!assets/|fonts/|brand/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {

@@ -41,7 +41,9 @@ export default function Settings() {
   // which company is picked in the dropdown ('' = none, '__new' = typing a new one)
   const [orgPick, setOrgPick] = useState('');
   const [presetUsed, setPresetUsed] = useState(false);
-  useEffect(() => setOrgPick(''), [form.role]);
+  useEffect(() => {
+    setOrgPick('');
+  }, [form.role]);
   useEffect(() => {
     if (preset && !presetUsed && orgs[form.role]?.some((o) => o._id === preset.orgId)) {
       setPresetUsed(true);
