@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import Icon from '../../components/Icon.jsx';
+import ReelDeck from '../../components/ReelDeck.jsx';
 import SwipeDeck, { CreatorPhoto, DefaultBack, Verified, creatorStats, igTags } from '../../components/SwipeDeck.jsx';
-import { Empty, Meter, PLATFORM_LABEL, StatusChip, fmtDate, fmtINR, fmtNum, useToast } from '../../components/ui.jsx';
+import { Empty, Meter, PLATFORM_LABEL, StatusChip, fmtDate, fmtINR, fmtNum, useShowMore, useToast } from '../../components/ui.jsx';
 
 const TABS = [
   ['review', 'To review'],
   ['selected', 'Selected'],
   ['saved', 'Saved for later'],
   ['declined', 'Declined'],
+  ['execution', 'Execution'],
   ['brief', 'Brief'],
 ];
 // which pile a creator is in, from the client's point of view
@@ -146,6 +148,16 @@ export default function ClientCampaignDetail() {
           </div>
           <h2>{c.name}</h2>
           {c.objective && <p className="muted">{c.objective}</p>}
+          {/* the essentials on one line — the full details are on the Brief tab */}
+          <p className="cp-meta">
+            <span>
+              <Icon name="creators" size={14} /> {fmtNum(c.creatorsNeeded)} creators
+            </span>
+            {c.platforms?.length > 0 && <span>{c.platforms.map((p) => PLATFORM_LABEL[p]).join(', ')}</span>}
+            <span>
+              <Icon name="calendar" size={14} /> {c.startDate || c.endDate ? `${c.startDate ? fmtDate(c.startDate) : 'TBC'} – ${c.endDate ? fmtDate(c.endDate) : 'TBC'}` : 'Dates to be confirmed'}
+            </span>
+          </p>
         </div>
         <div className="cp-progress">
           <span className="microlabel">Selected so far</span>
@@ -158,25 +170,6 @@ export default function ClientCampaignDetail() {
         </div>
       </section>
 
-      <dl className="cp-details">
-        <div>
-          <dt>Creators needed</dt>
-          <dd>{fmtNum(c.creatorsNeeded)}</dd>
-        </div>
-        <div>
-          <dt>Platforms</dt>
-          <dd>{c.platforms?.length ? c.platforms.map((p) => PLATFORM_LABEL[p]).join(', ') : '—'}</dd>
-        </div>
-        <div>
-          <dt>Deliverables per creator</dt>
-          <dd>{c.deliverables || '—'}</dd>
-        </div>
-        <div>
-          <dt>Campaign dates</dt>
-          <dd>{c.startDate || c.endDate ? `${c.startDate ? fmtDate(c.startDate) : 'TBC'} – ${c.endDate ? fmtDate(c.endDate) : 'TBC'}` : 'To be confirmed'}</dd>
-        </div>
-      </dl>
-
       <div className="seg cd-tabs" role="tablist">
         {TABS.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`${tab === k ? 'on' : ''} tab-${k}`} onClick={() => pick(k)}>
@@ -187,6 +180,25 @@ export default function ClientCampaignDetail() {
       </div>
 
       {tab === 'brief' ? (
+        <>
+      <dl className="cp-details">
+          <div>
+            <dt>Creators needed</dt>
+            <dd>{fmtNum(c.creatorsNeeded)}</dd>
+          </div>
+          <div>
+            <dt>Platforms</dt>
+            <dd>{c.platforms?.length ? c.platforms.map((p) => PLATFORM_LABEL[p]).join(', ') : '—'}</dd>
+          </div>
+          <div>
+            <dt>Deliverables per creator</dt>
+            <dd>{c.deliverables || '—'}</dd>
+          </div>
+          <div>
+            <dt>Campaign dates</dt>
+            <dd>{c.startDate || c.endDate ? `${c.startDate ? fmtDate(c.startDate) : 'TBC'} – ${c.endDate ? fmtDate(c.endDate) : 'TBC'}` : 'To be confirmed'}</dd>
+          </div>
+        </dl>
         <section className="card">
           <div className="cd-card-head">
             <h2>Campaign brief</h2>
@@ -198,6 +210,9 @@ export default function ClientCampaignDetail() {
           )}
           {c.brief ? <p className="cd-brief">{c.brief}</p> : <p className="muted">No brief has been added yet.</p>}
         </section>
+        </>
+      ) : tab === 'execution' ? (
+        <ClientExecution campaignId={c._id} />
       ) : tab === 'review' ? (
         sentTotal === 0 ? (
           <Empty icon="creators" title="No creators yet" text="Swol Media is shortlisting creators for this campaign. They’ll appear here for you to review." />
@@ -245,8 +260,10 @@ export default function ClientCampaignDetail() {
               }
             />
           ) : (
+            <ShowMore list={list} resetKey={tab}>
+              {(visible) => (
             <div className="pc-grid">
-              {list.map((s) => {
+              {visible.map((s) => {
                 const k = s.creator;
                 const pile = pileOf(s);
                 return (
@@ -303,10 +320,48 @@ export default function ClientCampaignDetail() {
                 );
               })}
             </div>
+              )}
+            </ShowMore>
           )}
         </>
       )}
       {toastNode}
     </div>
+  );
+}
+
+// a long pile of creators draws 48 cards at first and more as you scroll
+function ShowMore({ list, resetKey, children }) {
+  const [visible, footer] = useShowMore(list, { step: 48, resetKey });
+  return (
+    <>
+      {children(visible)}
+      {footer}
+    </>
+  );
+}
+
+// Execution: the reels the selected creators posted for this campaign
+function ClientExecution({ campaignId }) {
+  const [items, setItems] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      api
+        .listAssets(campaignId)
+        .then((d) => alive && setItems(d.items))
+        .catch(() => alive && setItems([]));
+    load();
+    const t = setInterval(load, 30000); // new reels show up while you watch
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [campaignId]);
+  if (items === null) return <div className="skel" style={{ height: 520 }} />;
+  return (
+    <section className="card rm rm-client">
+      <ReelDeck items={items} emptyTitle="No reels yet" emptyText="As your creators post for this campaign, their reels appear here." />
+    </section>
   );
 }

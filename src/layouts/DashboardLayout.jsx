@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { roleLabel } from '../config/dashboards.jsx';
@@ -6,6 +6,8 @@ import { LOGO_SRC } from '../components/Logo.jsx';
 import Icon from '../components/Icon.jsx';
 import Avatar from '../components/Avatar.jsx';
 import PillNav from '../components/PillNav.jsx';
+import UploadTray from '../components/UploadTray.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
 import '../dashboard.css';
 
 const PROFILE_TAB = { path: 'profile', label: 'Profile', icon: 'user', subtitle: 'Your details, photo and password' };
@@ -27,6 +29,12 @@ export default function DashboardLayout({ dashboard }) {
   const isSubPage = pathname.split('/').filter(Boolean).length > 2;
 
   useEffect(() => setMenu(false), [pathname]);
+  // a new page starts at the top (switching tabs inside a page — ?tab=… — keeps the scroll position)
+  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // the browser tab says where you are
+  useEffect(() => {
+    document.title = `${isSubPage ? `${current.label} · ` : current.label ? `${current.label} · ` : ''}Swol Media`;
+  }, [current.label, isSubPage]);
   useEffect(() => {
     const onDown = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenu(false);
     const onKey = (e) => e.key === 'Escape' && setMenu(false);
@@ -70,6 +78,7 @@ export default function DashboardLayout({ dashboard }) {
           </nav>
 
           <div className="nv-end">
+            {['internal', 'vendor'].includes(user.role) && <NotificationBell role={user.role} />}
             <div className="nv-me" ref={menuRef}>
               <button
                 className={`nv-me-btn ${menu ? 'open' : ''} ${current.path === 'profile' ? 'here' : ''}`}
@@ -119,8 +128,11 @@ export default function DashboardLayout({ dashboard }) {
           {!isSubPage && <h1 className="pg-title" key={current.path}>{current.label}</h1>}
           {current.subtitle && !isSubPage && <p className="page-sub">{current.subtitle}</p>}
         </div>
-        <Outlet />
+        <Suspense fallback={<div className="page"><div className="skel" style={{ height: 180 }} /><div className="skel" style={{ height: 320 }} /></div>}>
+          <Outlet />
+        </Suspense>
       </main>
+      <UploadTray campaignPath="/dashboard/campaigns" />
     </div>
   );
 }

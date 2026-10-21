@@ -162,7 +162,7 @@ export default function CreatorForm({ creator: initial, onClose, onSaved, onFetc
           <Field label="Engagement %">
             <input value={f.engagementRate} onChange={set('engagementRate')} inputMode="decimal" placeholder="e.g. 4.2" />
           </Field>
-          <Field label="Cost (latest)" hint="Their usual cost, e.g. 15,000 per reel. Campaign costs and client costs are set in each campaign’s table.">
+          <Field label="Cost (latest)" hint="Their usual cost, e.g. 15,000 per reel. Campaign costs and prices are set in each campaign’s table.">
             <input value={f.commercial} onChange={set('commercial')} placeholder="15,000 per reel" />
           </Field>
           <Field label="City">

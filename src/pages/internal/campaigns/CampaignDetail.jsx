@@ -15,10 +15,12 @@ import {
   readFile,
   toInputDate,
   useToast,
+  whenVisible,
 } from '../../../components/ui.jsx';
 import AssignVendor from './AssignVendor.jsx';
 import AddCreators from './AddCreators.jsx';
-import CreatorsStage from './CreatorsStage.jsx';
+import ReelsManager from '../../../components/ReelsManager.jsx';
+import CreatorsStage, { DownloadMenu } from './CreatorsStage.jsx';
 import InternalReview from './InternalReview.jsx';
 import { Pipeline } from '../../../components/Pipeline.jsx';
 
@@ -27,6 +29,7 @@ const TABS = [
   ['added', 'Creators added', 'creators'],
   ['client', 'With client', 'arrowRight'],
   ['approved', 'Campaign creators', 'check'],
+  ['execution', 'Execution', 'play'],
   ['brief', 'Brief & files', 'note'],
 ];
 
@@ -72,10 +75,20 @@ export default function CampaignDetail() {
     if (!waitingIg || polls.current > 150) return undefined;
     const t = setTimeout(() => {
       polls.current += 1;
-      loadCreators();
-    }, 6000);
+      whenVisible(loadCreators);
+    }, 8000);
     return () => clearTimeout(t);
   }, [creators, waitingIg]);
+  // a background upload for this campaign added creators: show them (and the new counts once it's finished)
+  useEffect(() => {
+    const on = (e) => {
+      if (String(e.detail?.campaignId) !== String(id)) return;
+      loadCreators();
+      if (e.detail.done) load();
+    };
+    window.addEventListener('swol:creators-added', on);
+    return () => window.removeEventListener('swol:creators-added', on);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
     loadCreators();
@@ -110,8 +123,8 @@ export default function CampaignDetail() {
   const tab = TABS.some(([k]) => k === params.get('tab')) ? params.get('tab') : STAGE_TAB[p.stage];
   const pickTab = (k) => setParams({ tab: k }, { replace: true });
   // "Creators added": swipe cards while there's something to review, else the table (or whatever was picked)
-  const reviewable = (creators || []).some((s) => ['submitted', 'shortlisted'].includes(s.status) && !s.held);
-  const addedView = params.get('view') === 'table' || params.get('view') === 'cards' ? params.get('view') : reviewable ? 'cards' : 'table';
+  // the table is the default; the swipe cards are one click away (?view=cards)
+  const addedView = params.get('view') === 'cards' ? 'cards' : 'table';
   const tabCount = { vendors: data.assignments.length, added: p.inReview, client: p.waitingClient, approved: p.approved };
 
   const move = async (ids, status) => {
@@ -119,7 +132,7 @@ export default function CampaignDetail() {
     try {
       const d = await api.moveCampaignCreators(c._id, ids, status);
       const verb = { sent_to_client: 'sent to the client', approved: 'approved', declined: 'marked declined', rejected: 'rejected', submitted: 'moved back to review', held: 'put on hold' }[status];
-      toast(`${d.updated} creator${d.updated === 1 ? '' : 's'} ${verb}`);
+      toast(`${d.updated} creator${d.updated === 1 ? '' : 's'} ${verb}${d.noPrice?.length ? ` · ${d.noPrice.length} without a price stayed in review` : ''}`);
       if (d.campaignStatus !== c.status) setData((prev) => ({ ...prev, item: { ...prev.item, status: d.campaignStatus } }));
       await loadCreators();
       load();
@@ -276,10 +289,8 @@ export default function CampaignDetail() {
               ))}
             </select>
           </label>
-          <a className="btn ghost sm" href={api.exportUrl(c._id)} download={`${c.code} ${c.name} – full campaign data.csv`} title="Campaign details, pipeline, vendors and every creator at every stage">
-            <Icon name="download" size={15} /> Download all data (CSV)
-          </a>
-          <button className="btn ghost sm danger-text" onClick={deleteCampaign}>
+          <DownloadMenu items={downloadsFor(c)} />
+          <button className="cd-del" onClick={deleteCampaign}>
             <Icon name="trash" size={15} /> Delete campaign
           </button>
         </div>
@@ -402,14 +413,16 @@ export default function CampaignDetail() {
             campaignId={c._id}
             campaignName={c.name}
             toast={toast}
-            exportUrl={api.exportUrl(c._id)}
-            exportName={`${c.code} ${c.name} – full campaign data.csv`}
+            downloads={downloadsFor(c)}
+            onPricesSet={loadCreators}
             busy={moving}
             onMove={move}
             onRemove={tab === 'approved' ? null : removeCreator}
             onAdd={tab === 'added' ? () => setAdding(true) : null}
           />
         ))}
+
+      {tab === 'execution' && <ReelsManager campaignId={c._id} role="internal" toast={toast} />}
 
       {tab === 'brief' && (
         <div className="cd-brief-grid">
@@ -532,24 +545,17 @@ export default function CampaignDetail() {
           campaign={c}
           assignments={data.assignments}
           onClose={() => setAdding(false)}
-          onAdded={(d, keepOpen) => {
-            if (!keepOpen) setAdding(false);
-            const ig = d.instagram || {};
-            const igNote = !ig.creators
-              ? ''
-              : !ig.enabled
-                ? ' · Instagram lookup is off — HIKERAPI_KEY isn’t set in server/.env'
-                : ig.queued
-                  ? ` · fetching Instagram data for ${fmtNum(ig.queued)}`
-                  : '';
-            toast(`${fmtNum(d.added)} creator${d.added === 1 ? '' : 's'} added${d.skipped.length ? ` · ${d.skipped.length} skipped` : ''}${igNote}`, !ig.enabled && ig.creators > 0);
-            loadCreators();
-            load();
-            // photos and Instagram numbers arrive in the background — refresh a few times
-          }}
         />
       )}
       {toastNode}
     </div>
   );
+}
+
+// the two Excel downloads (internal only): the full campaign workbook, and the short one for the client
+function downloadsFor(c) {
+  return [
+    { label: 'Full campaign (XLSX)', hint: 'Details, pipeline, vendors, costs, prices and every creator at every stage', url: api.exportUrl(c._id), name: `${c.code} ${c.name} – full campaign.xlsx` },
+    { label: 'For the client (XLSX)', hint: 'Creators sent to the client: username, followers, name, profile link, price, phone, email, bio', url: api.clientExportUrl(c._id), name: `${c.code} ${c.name} – creators for client.xlsx` },
+  ];
 }

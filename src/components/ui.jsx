@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from './Icon.jsx';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────
-export const fmtNum = (n) => new Intl.NumberFormat('en-IN').format(n || 0);
+// one formatter, reused (building a new Intl formatter for every number was slow on long lists)
+const NUM = new Intl.NumberFormat('en-IN');
+const DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+export const fmtNum = (n) => NUM.format(n || 0);
 export const fmtINR = (n) => (n ? `₹${fmtNum(n)}` : '—');
 // A number that counts up from 0 (or from its last value) when it appears or changes.
 export function Num({ value = 0, format = fmtNum, ms = 900 }) {
@@ -35,7 +39,7 @@ export function Num({ value = 0, format = fmtNum, ms = 900 }) {
 
 export const fmtMoney = (n) =>
   n ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n) : '—';
-export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+export const fmtDate = (d) => (d ? DATE.format(new Date(d)) : '—');
 export const fmtSize = (b) => (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 export const timeAgo = (d) => {
   const s = Math.round((Date.now() - new Date(d)) / 1000);
@@ -92,7 +96,10 @@ export function Panel({ title, subtitle, onClose, children, footer, wide }) {
       document.body.style.overflow = '';
     };
   }, [onClose]);
-  return (
+  // drawn at the top of the app (not inside the card that opened it): a card with a blur effect would
+  // otherwise trap the drawer inside itself — it grew as tall as the table and the page couldn't scroll
+  const host = typeof document !== 'undefined' ? document.querySelector('.app') || document.body : null;
+  const node = (
     <div className="pn-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <aside className={`pn ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="pn-head">
@@ -109,6 +116,7 @@ export function Panel({ title, subtitle, onClose, children, footer, wide }) {
       </aside>
     </div>
   );
+  return host ? createPortal(node, host) : node;
 }
 
 // ── Form bits ──────────────────────────────────────────────────────────────
@@ -302,3 +310,43 @@ export const fmtLakh = (n) => {
   if (Math.abs(n) >= 1e3) return f(n / 1e3, 'K');
   return String(n);
 };
+
+// Long lists draw `step` rows at first and add more as you scroll near the end (or tap "Show more"),
+// so a campaign with thousands of creators opens instantly. Starts over when `resetKey` changes (a new filter or search).
+// Returns [the rows to draw, the "showing x of y" footer to put under them].
+export function useShowMore(list, { step = 60, resetKey = '' } = {}) {
+  const [limit, setLimit] = useState(step);
+  const ref = useRef(null);
+  useEffect(() => setLimit(step), [resetKey, step]);
+  const more = list.length > limit;
+  useEffect(() => {
+    const el = ref.current;
+    if (!more || !el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((e) => e.some((x) => x.isIntersecting) && setLimit((l) => l + step), { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more, limit, step]);
+  const footer = more ? (
+    <div ref={ref} className="show-more">
+      <span>
+        Showing {fmtNum(limit)} of {fmtNum(list.length)}
+      </span>
+      <button type="button" className="btn ghost sm" onClick={() => setLimit((l) => l + step * 5)}>
+        Show more
+      </button>
+    </div>
+  ) : null;
+  return [more ? list.slice(0, limit) : list, footer];
+}
+
+// Run fn now if this tab is on screen, otherwise as soon as the person comes back to it
+// (background refreshes shouldn't keep downloading a big list for a tab nobody is looking at).
+export function whenVisible(fn) {
+  if (typeof document === 'undefined' || !document.hidden) return fn();
+  const on = () => {
+    if (document.hidden) return;
+    document.removeEventListener('visibilitychange', on);
+    fn();
+  };
+  document.addEventListener('visibilitychange', on);
+}

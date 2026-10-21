@@ -5,17 +5,21 @@
 // To add a brand-new dashboard type, add a role here and in server/src/models/User.js.
 // Every dashboard also gets a Profile page automatically (see App.jsx).
 // ─────────────────────────────────────────────────────────────────────────────
+import { lazy } from 'react';
 import WorkInProgress from '../components/WorkInProgress.jsx';
-import Settings from '../pages/internal/Settings.jsx';
 import WelcomeInProgress from '../pages/WelcomeInProgress.jsx';
-import Overview from '../pages/internal/Overview.jsx';
-import Campaigns from '../pages/internal/Campaigns.jsx';
-import Vendors from '../pages/internal/Vendors.jsx';
-import Creators from '../pages/internal/Creators.jsx';
-import Clients from '../pages/internal/Clients.jsx';
-import VendorCampaigns from '../pages/vendor/VendorCampaigns.jsx';
-import ClientPortal from '../pages/client/ClientPortal.jsx';
-import ClientOverview from '../pages/client/ClientOverview.jsx';
+
+// Each page is downloaded the first time it's opened, so signing in only loads what that person uses
+// (a vendor never downloads the internal Overview, a client never downloads Settings…).
+const Settings = lazy(() => import('../pages/internal/Settings.jsx'));
+const Overview = lazy(() => import('../pages/internal/Overview.jsx'));
+const Campaigns = lazy(() => import('../pages/internal/Campaigns.jsx'));
+const Vendors = lazy(() => import('../pages/internal/Vendors.jsx'));
+const Creators = lazy(() => import('../pages/internal/Creators.jsx'));
+const Clients = lazy(() => import('../pages/internal/Clients.jsx'));
+const VendorCampaigns = lazy(() => import('../pages/vendor/VendorCampaigns.jsx'));
+const ClientPortal = lazy(() => import('../pages/client/ClientPortal.jsx'));
+const ClientOverview = lazy(() => import('../pages/client/ClientOverview.jsx'));
 
 export const DASHBOARDS = {
   internal: {

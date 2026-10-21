@@ -64,7 +64,11 @@ const listeners = new Set();
 
 // Where the API lives. Empty in development (Vite proxies /api); in production set VITE_API_URL to the
 // server's address, e.g. https://swol-media-api.onrender.com
-export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+// `npm run dev` always talks to the local API through Vite's proxy (vite.config.js → localhost:5050),
+// even if VITE_API_URL is set somewhere — set VITE_DEV_API_URL only to point local development elsewhere.
+export const API_BASE = (import.meta.env.DEV ? import.meta.env.VITE_DEV_API_URL || '' : import.meta.env.VITE_API_URL || '')
+  .trim()
+  .replace(/\/+$/, '');
 
 // For plain links (downloads, <img>) that can't send a header: point /api paths at the API, and add this tab's token
 export const withSession = (url) => {

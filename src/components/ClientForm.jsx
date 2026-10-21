@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
+import LoginCreated from './LoginCreated.jsx';
 import { Panel, Field, Section } from './ui.jsx';
 
 const RULES = {
@@ -12,6 +13,7 @@ const blank = { name: '', industry: '', website: '', status: 'active', contact: 
 
 // Add or edit a client (brand). Their logins are created in Settings; their campaigns hang off this record.
 export default function ClientForm({ client, onClose, onSaved }) {
+  const [created, setCreated] = useState(null); // { item, login } after adding — shows the new login
   const editing = Boolean(client?._id);
   const [f, setF] = useState(() => ({ ...blank, ...(client || {}), contact: { ...blank.contact, ...(client?.contact || {}) } }));
   const [errors, setErrors] = useState({});
@@ -31,7 +33,8 @@ export default function ClientForm({ client, onClose, onSaved }) {
     setError('');
     const errs = {};
     if (!f.name.trim()) errs.name = 'Client name is required';
-    if (f.contact.email && !RULES.email[0].test(f.contact.email.trim())) errs.email = RULES.email[1];
+    if (!editing && !f.contact.email.trim()) errs.email = 'Needed — this is their login ID';
+    else if (f.contact.email && !RULES.email[0].test(f.contact.email.trim())) errs.email = RULES.email[1];
     if (f.contact.phone && !RULES.phone[0].test(f.contact.phone.trim())) errs.phone = RULES.phone[1];
     if (f.gstNumber && !RULES.gstNumber[0].test(f.gstNumber.trim())) errs.gstNumber = RULES.gstNumber[1];
     setErrors(errs);
@@ -49,7 +52,10 @@ export default function ClientForm({ client, onClose, onSaved }) {
     };
     try {
       const d = editing ? await api.updateClient(client._id, body) : await api.createClient(body);
-      onSaved(d.item, editing);
+      if (!editing && d.login) {
+        setCreated(d);
+        setSaving(false);
+      } else onSaved(d.item, editing);
     } catch (err) {
       setError(err.message);
       setSaving(false);
@@ -59,9 +65,14 @@ export default function ClientForm({ client, onClose, onSaved }) {
   return (
     <Panel
       title={editing ? `Edit ${client.name}` : 'Add client'}
-      subtitle="The brand you run campaigns for. Create their login in Settings once they’re added."
+      subtitle={created ? '' : editing ? 'The brand you run campaigns for.' : 'The brand you run campaigns for. Their login is created when you add them.'}
       onClose={onClose}
       footer={
+        created ? (
+          <button type="button" className="btn primary" onClick={() => onSaved(created.item, false)}>
+            Done
+          </button>
+        ) : (
         <>
           {error && <span className="pn-err">{error}</span>}
           <button type="button" className="btn ghost" onClick={onClose}>
@@ -71,8 +82,12 @@ export default function ClientForm({ client, onClose, onSaved }) {
             {saving ? 'Saving…' : editing ? 'Save changes' : 'Add client'}
           </button>
         </>
+        )
       }
     >
+      {created ? (
+        <LoginCreated login={created.login} company={created.item.name} role="client" />
+      ) : (
       <form id="client-form" onSubmit={save} noValidate>
         <Section title="Brand" icon="building">
           <Field label="Client name" required error={errors.name} full>
@@ -93,11 +108,11 @@ export default function ClientForm({ client, onClose, onSaved }) {
             </Field>
           )}
         </Section>
-        <Section title="Main contact" icon="user" note="Their login can be created from this contact in Settings.">
+        <Section title="Main contact" icon="user" note={editing ? 'More logins can be added in Settings.' : 'Their login is created with this email and a random password — you can change it later in Settings.'}>
           <Field label="Name">
             <input value={f.contact.name} onChange={set('contact.name')} placeholder="e.g. Ananya Rao" />
           </Field>
-          <Field label="Email" error={errors.email}>
+          <Field label={editing ? 'Email' : 'Email (login ID)'} required={!editing} error={errors.email}>
             <input type="email" value={f.contact.email} onChange={set('contact.email')} placeholder="ananya@brand.com" />
           </Field>
           <Field label="Phone" error={errors.phone}>
@@ -116,6 +131,7 @@ export default function ClientForm({ client, onClose, onSaved }) {
           </Field>
         </Section>
       </form>
+      )}
     </Panel>
   );
 }

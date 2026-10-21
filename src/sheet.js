@@ -171,3 +171,33 @@ export function rowsToEntries(rows) {
 }
 
 export const TEMPLATE_HEADERS = ['SN', 'Vendor', 'Username', 'Followers', 'Name', 'Profile Link', 'Commercial', 'State', 'City', 'District', 'Genre'];
+
+// ── Price sheets: two columns — username or profile link, and the price ─────
+// Headers are optional; without them the first column is the creator and the second the price.
+export function rowsToPrices(rows) {
+  const isWho = (h) => /user ?name|handle|profile|link|url|creator|instagram|insta|channel|^id$|^name$/.test(norm(h));
+  const isPrice = (h) => /price|client|cost|amount|rate|commercial|fee|charges|quote|₹|inr/.test(norm(h));
+  let start = 0;
+  let who = 0;
+  let price = 1;
+  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+    const r = rows[i].map(norm);
+    const w = r.findIndex((h) => h && isWho(h) && !/^https?:/.test(h));
+    const p = r.findIndex((h, j) => j !== w && h && isPrice(h));
+    if (w >= 0 && p >= 0) {
+      who = w;
+      price = p;
+      start = i + 1;
+      break;
+    }
+  }
+  // no header found: skip a first row whose "price" isn't a number
+  if (start === 0 && rows[0] && !/\d/.test(String(rows[0][1] ?? ''))) start = 1;
+  const out = [];
+  for (let i = start; i < rows.length; i++) {
+    const input = String(rows[i][who] ?? '').trim();
+    const value = String(rows[i][price] ?? '').trim();
+    if (input || value) out.push({ input, price: value, _row: i + 1 });
+  }
+  return { rows: out, header: start > 0 ? [rows[start - 1]?.[who], rows[start - 1]?.[price]] : null };
+}

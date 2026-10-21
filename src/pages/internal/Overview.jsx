@@ -85,6 +85,32 @@ function describe(a) {
           {a.action.split('.')[1] === 'restored' ? ' into review' : ` ${a.action.split('.')[1]}`} on <b>{m.name}</b>
         </>
       );
+    case 'creators.priced':
+      return (
+        <>
+          set prices for {fmtNum(m.count)} creator{m.count === 1 ? '' : 's'} on <b>{m.name}</b>
+        </>
+      );
+    case 'creators.repriced':
+      return (
+        <>
+          changed the price of <b>@{m.handle}</b> on <b>{m.name}</b> from {m.from ? `₹${fmtNum(m.from)}` : 'no cost'} to ₹{fmtNum(m.to)}
+          {m.vendor ? ` (${m.vendor} took over from ${m.was})` : ''}
+        </>
+      );
+    case 'creators.removed':
+      return (
+        <>
+          removed {fmtNum(m.count)} creator{m.count === 1 ? '' : 's'} from <b>{m.name}</b>
+          {m.by === 'vendor' ? ' (vendor)' : ''}
+        </>
+      );
+    case 'assets.added':
+      return (
+        <>
+          added {fmtNum(m.count)} reel{m.count === 1 ? '' : 's'} to <b>{m.name}</b>
+        </>
+      );
     default:
       return a.action;
   }
@@ -105,6 +131,10 @@ const ICON = {
   'creators.declined': 'close',
   'creators.rejected': 'close',
   'creators.restored': 'activity',
+  'creators.priced': 'edit',
+  'creators.removed': 'trash',
+  'creators.repriced': 'wallet',
+  'assets.added': 'upload',
 };
 
 export default function Overview() {
@@ -336,7 +366,7 @@ export default function Overview() {
                   <th>Pipeline</th>
                   <th>Ends</th>
                   <th>Cost</th>
-                  <th>Client cost</th>
+                  <th>Price</th>
                   <th>Margin</th>
                 </tr>
               </thead>
@@ -389,7 +419,7 @@ export default function Overview() {
                         )}
                       </td>
                       <td data-label="Cost">{c.cost ? money(c.cost) : <span className="muted">—</span>}</td>
-                      <td data-label="Client cost">{c.clientCost ? money(c.clientCost) : <span className="muted">—</span>}</td>
+                      <td data-label="Price">{c.clientCost ? money(c.clientCost) : <span className="muted">—</span>}</td>
                       <td data-label="Margin" className={c.margin < 0 ? 'ov-neg' : c.margin > 0 ? 'ov-pos' : ''}>
                         {c.clientCost ? money(c.margin) : <span className="muted">—</span>}
                       </td>

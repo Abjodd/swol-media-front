@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { startUpload } from '../../../uploads.js';
 import { api } from '../../../api.js';
 import Icon from '../../../components/Icon.jsx';
 import { Panel, Field, PLATFORM_LABEL, fmtNum } from '../../../components/ui.jsx';
@@ -185,23 +186,17 @@ export default function AddCreators({ campaign, assignments = [], vendorName, on
     if (!all.length)
       return setError(mode === 'sheet' ? 'Upload a sheet first' : mode === 'links' ? 'Paste at least one profile link' : 'Add the creator’s username or profile link');
     if (pricingProblem) return setError(pricingProblem);
-    if (entries.length > 500) return setError('Add up to 500 creators at a time');
-    setBusy(true);
-    try {
-      const plan = manual ? { mode: 'manual' } : pricing === 'bucket' ? { mode: 'bucket', budget: budgetNum } : { mode: 'slab', slabs: slabCheck.list, saveDefault };
-      const d = await api.addCampaignCreators(campaign._id, { entries: entries.map(({ _row, ...x }) => x), platform, assignmentId: by || undefined, pricing: plan });
-      if (d.skipped.length || d.unmatchedVendors?.length) {
-        setResult(d);
-        if (d.added) onAdded(d, true);
-        if (mode === 'links') setText(d.skipped.map((s) => s.input).join('\n'));
-        if (mode === 'sheet') setSheet(null);
-        if (mode === 'one' && d.added) setOne(EMPTY_ONE);
-      } else onAdded(d);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+    const plan = manual ? { mode: 'manual' } : pricing === 'bucket' ? { mode: 'bucket', budget: budgetNum } : { mode: 'slab', slabs: slabCheck.list, saveDefault };
+    // any number of rows: they go up in the background (progress in the top-right corner) while the app stays usable
+    startUpload({
+      campaignId: campaign._id,
+      campaignName: campaign.name,
+      entries: entries.map(({ _row, ...x }) => x),
+      platform,
+      assignmentId: by || undefined,
+      pricing: plan,
+    });
+    onClose();
   };
 
   // vendors add to their own assignment; the internal team can credit a vendor, use the sheet's Vendor column, or Swol Media

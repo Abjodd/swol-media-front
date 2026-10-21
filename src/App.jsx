@@ -1,10 +1,13 @@
+import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
-import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
-import DashboardLayout from './layouts/DashboardLayout.jsx';
-import Profile from './pages/Profile.jsx';
 import { DASHBOARDS } from './config/dashboards.jsx';
+
+// the landing page (with its intro animation) and the dashboards are separate downloads
+const Home = lazy(() => import('./pages/Home.jsx'));
+const DashboardLayout = lazy(() => import('./layouts/DashboardLayout.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
 
 function Loader() {
   return <div className="page-loader">Loading Swol Media…</div>;
@@ -35,11 +38,13 @@ function Dashboard() {
 
 export default function App() {
   return (
+    <Suspense fallback={<Loader />}>
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard/*" element={<Dashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }

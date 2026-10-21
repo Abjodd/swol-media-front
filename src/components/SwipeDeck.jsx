@@ -12,11 +12,25 @@ const photoFor = (k) =>
     ? withSession(k.avatarUrl)
     : k.avatarUrl || (PHOTO_SOURCE[k.platform] ? `https://unavatar.io/${PHOTO_SOURCE[k.platform]}/${encodeURIComponent(k.handle)}?fallback=false` : '');
 
+// still waiting for the Instagram (HikerAPI) lookup — show a loading shimmer instead of blanks
+export const isFetching = (k) => k?.ig?.status === 'queued';
+export const Shimmer = ({ w }) => <i className="ig-shimmer" style={w ? { width: w } : undefined} aria-label="Loading from Instagram" />;
+// "Fetching from Instagram" with animated dots, under a creator's name
+export const FetchingTag = ({ k }) =>
+  isFetching(k) ? (
+    <span className="ig-fetching" title="Photo, followers and averages are on their way from Instagram">
+      Fetching data<b>.</b><b>.</b><b>.</b>
+    </span>
+  ) : null;
+
 // The creator's photo, falling back to large initials on black when there isn't one.
+// While the Instagram lookup runs (and we have no photo of our own yet) it shimmers.
 export function CreatorPhoto({ creator, className = '' }) {
-  const src = photoFor(creator);
+  const loading = isFetching(creator) && !creator.avatarUrl;
+  const src = loading ? '' : photoFor(creator);
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [src]);
+  if (loading) return <div className={`cph ${className} is-loading`} aria-label="Loading photo" />;
   return (
     <div className={`cph ${className} ${!src || failed ? 'is-empty' : ''}`}>
       {src && !failed ? (
@@ -28,26 +42,34 @@ export function CreatorPhoto({ creator, className = '' }) {
   );
 }
 
-// numbers fetched from Instagram show a real 0 as "0"; unknown numbers show "—"
-const stat = (n, known) => (n ? fmtCompact(n) : known ? '0' : '—');
-const er = (k) => (k.engagementRate ? `${Number(k.engagementRate).toFixed(1).replace(/\.0$/, '')}%` : k.ig?.fetchedAt && k.followers ? '0%' : '—');
+// numbers fetched from Instagram show a real 0 as "0"; unknown numbers show "—";
+// numbers still on their way from Instagram shimmer
+const statOf = (k) => (n, known) => (n ? fmtCompact(n) : known ? '0' : isFetching(k) ? <Shimmer /> : '—');
+const er = (k) =>
+  k.engagementRate ? `${Number(k.engagementRate).toFixed(1).replace(/\.0$/, '')}%` : k.ig?.fetchedAt && k.followers ? '0%' : isFetching(k) ? <Shimmer /> : '—';
 const fetched = (k) => Boolean(k.ig?.fetchedAt);
-export const creatorStats = (k) => [
-  ['Followers', stat(k.followers, fetched(k))],
-  ['Avg views', stat(k.avgViews)],
-  ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
-  ['Engagement', er(k)],
-];
+export const creatorStats = (k) => {
+  const stat = statOf(k);
+  return [
+    ['Followers', stat(k.followers, fetched(k))],
+    ['Avg views', stat(k.avgViews)],
+    ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
+    ['Engagement', er(k)],
+  ];
+};
 // the longer list for the back of the card
-export const creatorStatsFull = (k) => [
-  ['Followers', stat(k.followers, fetched(k))],
-  ['Following', stat(k.following, fetched(k))],
-  ['Avg views', stat(k.avgViews)],
-  ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
-  ['Avg comments', stat(k.avgComments, fetched(k) && k.ig?.sampled > 0)],
-  ['Engagement', er(k)],
-  ...(k.ig?.fetchedAt ? [['Posts', stat(k.ig.posts, true)]] : []),
-];
+export const creatorStatsFull = (k) => {
+  const stat = statOf(k);
+  return [
+    ['Followers', stat(k.followers, fetched(k))],
+    ['Following', stat(k.following, fetched(k))],
+    ['Avg views', stat(k.avgViews)],
+    ['Avg likes', stat(k.avgLikes, fetched(k) && k.ig?.sampled > 0)],
+    ['Avg comments', stat(k.avgComments, fetched(k) && k.ig?.sampled > 0)],
+    ['Engagement', er(k)],
+    ...(k.ig?.fetchedAt ? [['Posts', stat(k.ig.posts, true)]] : []),
+  ];
+};
 
 // short labels from the Instagram lookup: category, account type, post count
 export const igTags = (k) => {
@@ -203,7 +225,9 @@ function Card({ sub, depth, onGone, flingRef, flipRef, back, teach, onStart, act
           <div className="sw-more">
             {k.ig?.status === 'queued' && (
               <p className="sw-tags">
-                <span className="sw-fetching">Fetching Instagram details…</span>
+                <span className="sw-fetching">
+                  Fetching Instagram details<b>.</b><b>.</b><b>.</b>
+                </span>
               </p>
             )}
             {igTags(k).length > 0 && (

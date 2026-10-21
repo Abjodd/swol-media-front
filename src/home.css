@@ -11,7 +11,7 @@
   --h-line: #e1e6f0;
   --h-gold: #2563ff;
   --h-gold-2: #4f83ff;
-  --h-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --h-display: 'Swol Display', 'Space Grotesk', 'Inter', system-ui, sans-serif; /* self-hosted (fonts.css) */
   background: var(--h-cream);
   color: var(--h-text);
   overflow-x: hidden;

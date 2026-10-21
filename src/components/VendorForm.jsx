@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
+import LoginCreated from './LoginCreated.jsx';
 import { Panel, Field, Section, ChipPicker, PLATFORM_LABEL } from './ui.jsx';
 
 // Mirrors the server-side checks so mistakes show up before saving
@@ -41,6 +42,7 @@ const fromVendor = (v) => ({
 });
 
 export default function VendorForm({ vendor, onClose, onSaved }) {
+  const [created, setCreated] = useState(null); // { item, login } after adding — shows the new login
   const [f, setF] = useState(() => fromVendor(vendor));
   const [cats, setCats] = useState((vendor?.categories || []).join(', '));
   const [errors, setErrors] = useState({});
@@ -65,7 +67,8 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
     const check = (key, value) => {
       if (value && !RULES[key][0].test(value.trim())) e[key] = RULES[key][1];
     };
-    check('email', f.contact.email);
+    if (!editing && !f.contact.email.trim()) e.email = 'Needed — this is their login ID';
+    else check('email', f.contact.email);
     check('phone', f.contact.phone);
     check('pincode', f.pincode);
     check('pan', f.pan);
@@ -89,7 +92,10 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
     for (const k of ['_id', 'nameKey', 'createdAt', 'updatedAt', '__v', 'createdBy', 'userCount', 'campaigns', 'quota']) delete payload[k];
     try {
       const d = editing ? await api.updateVendor(vendor._id, payload) : await api.createVendor(payload);
-      onSaved(d.item, editing);
+      if (!editing && d.login) {
+        setCreated(d);
+        setSaving(false);
+      } else onSaved(d.item, editing);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -104,6 +110,11 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
       onClose={onClose}
       wide
       footer={
+        created ? (
+          <button type="button" className="btn primary" onClick={() => onSaved(created.item, false)}>
+            Done
+          </button>
+        ) : (
         <>
           {error && <span className="pn-err">{error}</span>}
           <button type="button" className="btn ghost" onClick={onClose}>
@@ -113,8 +124,12 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
             {saving ? 'Saving…' : editing ? 'Save changes' : 'Add vendor'}
           </button>
         </>
+        )
       }
     >
+      {created ? (
+        <LoginCreated login={created.login} company={created.item.name} role="vendor" />
+      ) : (
       <form id="vendor-form" onSubmit={save} noValidate>
         <Section title="Company" icon="building">
           <Field label="Vendor / agency name" required error={errors.name} full>
@@ -134,11 +149,11 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
           </Field>
         </Section>
 
-        <Section title="Contact" icon="user">
+        <Section title="Contact" icon="user" note={editing ? undefined : 'Their login is created with this email and a random password — you can change it later in Settings.'}>
           <Field label="Contact person">
             <input value={f.contact.name} onChange={set('contact.name')} placeholder="Full name" />
           </Field>
-          <Field label="Email" error={errors.email}>
+          <Field label={editing ? 'Email' : 'Email (login ID)'} required={!editing} error={errors.email}>
             <input type="email" value={f.contact.email} onChange={set('contact.email')} placeholder="name@vendor.com" />
           </Field>
           <Field label="Phone" error={errors.phone}>
@@ -201,6 +216,7 @@ export default function VendorForm({ vendor, onClose, onSaved }) {
           </Field>
         </Section>
       </form>
+      )}
     </Panel>
   );
 }

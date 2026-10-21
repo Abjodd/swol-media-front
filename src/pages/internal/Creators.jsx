@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import Icon from '../../components/Icon.jsx';
 import CreatorForm from '../../components/CreatorForm.jsx';
-import { CreatorPhoto, Verified } from '../../components/SwipeDeck.jsx';
-import { Empty, PLATFORM_LABEL, SUB_STATUS, fmtCompact, fmtINR, fmtNum, useToast } from '../../components/ui.jsx';
+import { CreatorPhoto, FetchingTag, Shimmer, Verified, isFetching } from '../../components/SwipeDeck.jsx';
+import { Empty, PLATFORM_LABEL, SUB_STATUS, fmtCompact, fmtINR, fmtNum, useShowMore, useToast } from '../../components/ui.jsx';
 
 // The creator database — every profile added to any campaign, by vendors or by our team.
 export default function Creators() {
@@ -21,13 +21,16 @@ export default function Creators() {
   useEffect(() => {
     if (!ig?.queued) return undefined;
     const t = setInterval(() => {
+      if (document.hidden) return; // nobody is looking — check again next time
       api.instagramStatus().then(setIg).catch(() => {});
       api.listCreators({ q, platform }).then(setData).catch(() => {});
-    }, 4000);
+    }, 6000);
     return () => clearInterval(t);
   }, [ig?.queued, q, platform]);
 
   const [toast, toastNode] = useToast();
+  // draw 60 rows, more as you scroll
+  const [rows, moreRows] = useShowMore(data?.items || [], { resetKey: `${q}|${platform}` });
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -79,7 +82,7 @@ export default function Creators() {
               <span>Name / username</span>
               <span>Followers</span>
               <span>Cost</span>
-              <span>Client cost</span>
+              <span>Price</span>
               <span>Vendor</span>
               <span>State</span>
               <span>City</span>
@@ -88,7 +91,7 @@ export default function Creators() {
               <span>Campaigns</span>
               <span />
             </div>
-            {data.items.map((c) => (
+            {rows.map((c) => (
               <div key={c._id} className="cs-row" role="row">
                 <div className="cs-who">
                   <CreatorPhoto creator={c} className="cs-av" />
@@ -106,16 +109,16 @@ export default function Creators() {
                         <span>@{c.handle}</span>
                       </>
                     )}
-                    <span className="cs-plat">{PLATFORM_LABEL[c.platform]}</span>
+                    {isFetching(c) ? <FetchingTag k={c} /> : <span className="cs-plat">{PLATFORM_LABEL[c.platform]}</span>}
                   </div>
                 </div>
                 <span className="cs-cell" data-label="Followers">
-                  {fmtCompact(c.followers)}
+                  {!c.followers && isFetching(c) ? <Shimmer w={44} /> : fmtCompact(c.followers)}
                 </span>
                 <span className="cs-cell" data-label="Cost">
                   <b className="cr-v" title={c.commercial || ''}>{fmtINR(c.rate?.amount)}</b>
                 </span>
-                <span className="cs-cell" data-label="Client cost">
+                <span className="cs-cell" data-label="Price">
                   {(() => {
                     const last = [...c.campaigns].sort((a, b) => new Date(b.at) - new Date(a.at)).find((x) => x.clientCost);
                     return last ? (
@@ -161,6 +164,7 @@ export default function Creators() {
             ))}
           </div>
           </div>
+          {moreRows}
         </section>
       )}
       {editing && (

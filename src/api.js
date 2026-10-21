@@ -91,18 +91,30 @@ export const api = {
   deleteDocument: (id, docId) => request(`/campaigns/${id}/documents/${docId}`, { method: 'DELETE' }),
   // client overview: their campaigns + client-safe numbers for each shortlisted creator
   clientInsights: () => request('/campaigns/insights'),
-  // everything about a campaign at every stage, as one CSV (internal team only)
-  exportUrl: (id) => withSession(`${BASE}/api/campaigns/${id}/export.csv`),
+  // Excel downloads (internal team only): everything about the campaign, or the short sheet to send the client
+  exportUrl: (id) => withSession(`${BASE}/api/campaigns/${id}/export.xlsx`),
+  clientExportUrl: (id) => withSession(`${BASE}/api/campaigns/${id}/export.xlsx?for=client`),
   documentUrl: (id, docId, download) => withSession(`${BASE}/api/campaigns/${id}/documents/${docId}${download ? '?download=1' : ''}`),
   assignVendor: (id, data) => request(`/campaigns/${id}/vendors`, { method: 'POST', body: data }),
   updateAssignment: (id, aid, data) => request(`/campaigns/${id}/vendors/${aid}`, { method: 'PATCH', body: data }),
   removeAssignment: (id, aid) => request(`/campaigns/${id}/vendors/${aid}`, { method: 'DELETE' }),
   // creators on a campaign (pipeline)
   listCampaignCreators: (id) => request(`/campaigns/${id}/creators`),
+  notifications: () => request('/notifications'),
+  notificationCount: () => request('/notifications/count'),
+  readNotifications: (ids) => request('/notifications/read', { method: 'POST', body: { ids } }),
+  dismissNotification: (id) => request(`/notifications/${id}`, { method: 'DELETE' }),
+  offerCreatorPrice: (id, sid, price) => request(`/campaigns/${id}/creators/${sid}/offer`, { method: 'POST', body: { price } }),
   addCampaignCreators: (id, data) => request(`/campaigns/${id}/creators`, { method: 'POST', body: data }),
   moveCampaignCreators: (id, ids, status, note) => request(`/campaigns/${id}/creators/status`, { method: 'PATCH', body: { ids, status, note } }),
   pricingDefault: (id) => request(`/campaigns/${id}/creators/pricing-default`),
   setCreatorLocation: (id, sid, body) => request(`/campaigns/${id}/creators/${sid}/location`, { method: 'PATCH', body }),
+  // reels / posts the creators published (Execution)
+  listAssets: (id) => request(`/campaigns/${id}/assets`),
+  addAssets: (id, links) => request(`/campaigns/${id}/assets`, { method: 'POST', body: { links } }),
+  retryAsset: (id, aid) => request(`/campaigns/${id}/assets/${aid}/retry`, { method: 'POST' }),
+  deleteAsset: (id, aid) => request(`/campaigns/${id}/assets/${aid}`, { method: 'DELETE' }),
+  setCreatorPrices: (id, rows) => request(`/campaigns/${id}/creators/prices`, { method: 'POST', body: { rows } }),
   setCreatorCost: (id, sid, data) => request(`/campaigns/${id}/creators/${sid}/cost`, { method: 'PATCH', body: data }),
   removeCampaignCreator: (id, sid) => request(`/campaigns/${id}/creators/${sid}`, { method: 'DELETE' }),
   // creator database

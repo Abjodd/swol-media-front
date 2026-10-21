@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Icon from '../../components/Icon.jsx';
-import { Meter, PLATFORM_LABEL, fmtDate, fmtNum, useToast } from '../../components/ui.jsx';
+import { Meter, PLATFORM_LABEL, fmtDate, fmtNum, useToast, whenVisible } from '../../components/ui.jsx';
 import AddCreators from '../internal/campaigns/AddCreators.jsx';
 import CreatorsStage from '../internal/campaigns/CreatorsStage.jsx';
+import ReelsManager from '../../components/ReelsManager.jsx';
 import { dueText, daysLeft, progressOf } from './vendorUtil.js';
 
 export default function VendorCampaignDetail() {
@@ -16,6 +17,7 @@ export default function VendorCampaignDetail() {
   const [notFound, setNotFound] = useState(false);
   const [adding, setAdding] = useState(false);
   const [toast, toastNode] = useToast();
+  const [vtab, setVtab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'assets' ? 'assets' : 'creators'));
 
   const load = () =>
     api
@@ -34,10 +36,32 @@ export default function VendorCampaignDetail() {
     if (!waitingIg || polls.current > 150) return undefined;
     const t = setTimeout(() => {
       polls.current += 1;
-      loadCreators();
-    }, 6000);
+      whenVisible(loadCreators);
+    }, 8000);
     return () => clearTimeout(t);
   }, [creators, waitingIg]);
+  // a background upload for this campaign added creators: show them (and the new counts once it's finished)
+  useEffect(() => {
+    const on = (e) => {
+      if (String(e.detail?.campaignId) !== String(id)) return;
+      loadCreators();
+      if (e.detail.done) load();
+    };
+    window.addEventListener('swol:creators-added', on);
+    return () => window.removeEventListener('swol:creators-added', on);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // take back a creator you added — only while it's still with the Swol Media team (not once sent to the client)
+  const removeCreator = async (sub) => {
+    if (!window.confirm(`Remove ${sub.creator.name || '@' + sub.creator.handle} from this campaign?`)) return;
+    try {
+      await api.removeCampaignCreator(id, sub._id);
+      toast('Creator removed');
+      setCreators((list) => list.filter((x) => x._id !== sub._id));
+      load();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
   useEffect(() => {
     load();
     loadCreators();
@@ -142,14 +166,25 @@ export default function VendorCampaignDetail() {
         </dl>
       </section>
 
-      <div className="vd-section-head">
-        <h2>Your creators</h2>
-        <p className="muted">Everything you’ve proposed for this campaign and where each one stands.</p>
+      <div className="seg cd-tabs vd-tabs" role="tablist">
+        <button type="button" role="tab" aria-selected={vtab === 'creators'} className={vtab === 'creators' ? 'on' : ''} onClick={() => setVtab('creators')}>
+          <Icon name="creators" size={15} /> Your creators <span>{creators?.length ?? ''}</span>
+        </button>
+        <button type="button" role="tab" aria-selected={vtab === 'assets'} className={vtab === 'assets' ? 'on' : ''} onClick={() => setVtab('assets')}>
+          <Icon name="play" size={15} /> Assets
+        </button>
       </div>
-      {creators === null ? (
-        <div className="skel" style={{ height: 200 }} />
+      {vtab === 'assets' ? (
+        <ReelsManager campaignId={c._id} role="vendor" toast={toast} canAdd={!closed} />
       ) : (
-        <CreatorsStage stage="vendor" items={creators} campaignId={c._id} campaignName={c.name} toast={toast} onMove={async () => false} onAdd={closed ? null : () => setAdding(true)} />
+        <>
+          <p className="vd-hint">Everything you’ve proposed for this campaign and where each one stands. You can remove a creator while it’s still in review.</p>
+          {creators === null ? (
+            <div className="skel" style={{ height: 200 }} />
+          ) : (
+            <CreatorsStage stage="vendor" items={creators} campaignId={c._id} campaignName={c.name} toast={toast} onMove={async () => false} onAdd={closed ? null : () => setAdding(true)} onRemove={removeCreator} />
+          )}
+        </>
       )}
 
       {adding && (
@@ -157,12 +192,6 @@ export default function VendorCampaignDetail() {
           campaign={c}
           vendorName={user.company || 'your team'}
           onClose={() => setAdding(false)}
-          onAdded={(d, keepOpen) => {
-            if (!keepOpen) setAdding(false);
-            toast(`${fmtNum(d.added)} creator${d.added === 1 ? '' : 's'} added${d.skipped.length ? ` · ${d.skipped.length} skipped` : ''}${d.instagram?.queued ? ' · fetching their Instagram details' : ''}`);
-            loadCreators();
-            load();
-          }}
         />
       )}
       {toastNode}

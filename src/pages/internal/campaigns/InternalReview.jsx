@@ -22,7 +22,8 @@ function TeamBack({ sub }) {
         <b>{fmtINR(s.vendorCost?.amount)}</b>
         {s.vendorCost?.text && s.vendorCost.text !== String(s.vendorCost.amount) ? <small className="sw-row-sub"> ({s.vendorCost.text})</small> : null}
       </BackRow>
-      <BackRow label="Client cost">{s.clientCost?.amount ? <b className="sw-neg">{fmtINR(s.clientCost.amount)}</b> : <span className="muted">Not set — add it in the table</span>}</BackRow>
+      <BackRow label="Price">{s.clientCost?.amount ? <b className="sw-neg">{fmtINR(s.clientCost.amount)}</b> : <span className="muted">Not set — needed before shortlisting (set it in the table)</span>}</BackRow>
+      <BackRow label="Margin">{s.clientCost?.amount && s.vendorCost?.amount ? fmtINR(s.clientCost.amount - s.vendorCost.amount) : null}</BackRow>
       <BackRow label="Added by">{`${s.vendor?.name || 'Swol Media'}, ${fmtDate(s.createdAt)}`}</BackRow>
       <BackRow label="Phone">{s.creator.contact?.phone}</BackRow>
       <BackRow label="Email">{s.creator.contact?.email}</BackRow>
