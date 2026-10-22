@@ -555,7 +555,7 @@ export default function CampaignDetail() {
 // the two Excel downloads (internal only): the full campaign workbook, and the short one for the client
 function downloadsFor(c) {
   return [
-    { label: 'Full campaign (XLSX)', hint: 'Details, pipeline, vendors, costs, prices and every creator at every stage', url: api.exportUrl(c._id), name: `${c.code} ${c.name} – full campaign.xlsx` },
-    { label: 'For the client (XLSX)', hint: 'Creators sent to the client: username, followers, name, profile link, price, phone, email, bio', url: api.clientExportUrl(c._id), name: `${c.code} ${c.name} – creators for client.xlsx` },
+    { label: 'Full campaign (XLSX)', hint: 'Every creator at every stage (first sheet), plus the campaign summary and vendors', url: api.exportUrl(c._id), name: `${c.code} ${c.name} – full campaign.xlsx` },
+    { label: 'For the client (XLSX)', hint: 'Every creator on the campaign (not rejected): username, followers, name, profile link, price, phone, email, bio', url: api.clientExportUrl(c._id), name: `${c.code} ${c.name} – creators for client.xlsx` },
   ];
 }
