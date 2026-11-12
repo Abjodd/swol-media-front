@@ -45,6 +45,7 @@ async function run(job) {
       assignmentId: job.assignmentId,
       pricing: job.planId ? { ...job.pricing, planId: job.planId } : job.pricing,
       upload: { id: job.id, last: i === parts - 1, added: job.added },
+      confirmedVendors: job.confirmedVendors,
     };
     let d;
     for (let attempt = 1; ; attempt++) {
@@ -65,10 +66,12 @@ async function run(job) {
       noCost: job.noCost + (d.noCost || 0),
       skipped: [...job.skipped, ...(d.skipped || [])],
       conflicts: [...job.conflicts, ...(d.conflicts || [])],
+      // vendors added / assigned from the sheet's Vendor column (with any new login), once each
+      vendors: [...job.vendors, ...(d.autoVendors || []).filter((v) => !job.vendors.some((x) => x.vendorId === v.vendorId))],
       unmatched: [...new Set([...job.unmatched, ...(d.unmatchedVendors || [])])],
       planId: job.planId || d.pricing?.planId || null,
       pricingLabel: d.pricing?.label || job.pricingLabel,
-      igQueued: job.igQueued + (d.instagram?.queued || 0),
+      igQueued: job.igQueued + (d.instagram?.queued || 0) + (d.social?.queued || 0),
       igOff: job.igOff || (d.instagram && !d.instagram.enabled && d.instagram.creators > 0),
     });
     // let an open campaign page show the new creators every few parts (not after every one — big lists)
@@ -79,7 +82,7 @@ async function run(job) {
 }
 
 // Start uploading in the background. Returns the job right away.
-export function startUpload({ campaignId, campaignName, entries, platform, assignmentId, pricing }) {
+export function startUpload({ campaignId, campaignName, entries, platform, assignmentId, pricing, confirmedVendors = [] }) {
   const job = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     campaignId,
@@ -88,12 +91,14 @@ export function startUpload({ campaignId, campaignName, entries, platform, assig
     platform,
     assignmentId,
     pricing,
+    confirmedVendors, // vendor names the team said are new (not a look-alike of an existing vendor)
     total: entries.length,
     part: 0,
     done: 0,
     added: 0,
     noCost: 0,
     skipped: [],
+    vendors: [], // vendors added from the sheet's Vendor column
     conflicts: [], // creators another vendor already has here — the vendor can offer a lower price
     unmatched: [],
     planId: null,

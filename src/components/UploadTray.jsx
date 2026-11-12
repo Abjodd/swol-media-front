@@ -5,6 +5,49 @@ import { fmtNum } from './ui.jsx';
 import { dismissUpload, retryUpload, useUploads } from '../uploads.js';
 import OfferPanel from './OfferPanel.jsx';
 
+// Vendors from the sheet's Vendor column that weren't on the campaign: added (and given a login if new)
+function NewVendors({ list }) {
+  const [copied, setCopied] = useState('');
+  const copy = async (v) => {
+    try {
+      await navigator.clipboard.writeText(`Swol Media login\n${window.location.origin}/login\nID: ${v.login.email}\nPassword: ${v.login.password}`);
+      setCopied(v.vendorId);
+      setTimeout(() => setCopied(''), 1500);
+    } catch {
+      /* clipboard blocked */
+    }
+  };
+  return (
+    <div className="up-vendors">
+      <p>
+        <b>{list.length === 1 ? 'Vendor' : `${list.length} vendors`} from the sheet assigned to this campaign</b>
+      </p>
+      <ul>
+        {list.map((v) => (
+          <li key={v.vendorId}>
+            <strong>
+              {v.name}
+              {v.newVendor && <em>new</em>}
+            </strong>
+            {v.login ? (
+              <span className="up-login">
+                <code>{v.login.email}</code>
+                <code>{v.login.password}</code>
+                <button type="button" className="up-copy" onClick={() => copy(v)}>
+                  {copied === v.vendorId ? 'Copied' : 'Copy login'}
+                </button>
+              </span>
+            ) : (
+              <small>already has a login</small>
+            )}
+          </li>
+        ))}
+      </ul>
+      {list.some((v) => v.login) && <small className="up-hint">Change the login ID or password any time in Settings.</small>}
+    </div>
+  );
+}
+
 // Top-right corner: creator uploads going on in the background, with their progress and, once done, what happened.
 export default function UploadTray({ campaignPath = 'campaigns' }) {
   const jobs = useUploads();
@@ -66,9 +109,11 @@ function UploadCard({ job: j, campaignPath }) {
       {j.status === 'done' && (
         <p className="up-sub">
           {j.pricingLabel ? `${j.pricingLabel}. ` : ''}
-          {j.igOff ? 'Instagram lookup is off (HIKERAPI_KEY isn’t set).' : j.igQueued ? `Fetching Instagram details for ${fmtNum(j.igQueued)} new creator${j.igQueued === 1 ? '' : 's'}.` : ''}
+          {j.igOff ? 'Instagram lookup is off (HIKERAPI_KEY isn’t set).' : j.igQueued ? `Fetching profile details for ${fmtNum(j.igQueued)} new creator${j.igQueued === 1 ? '' : 's'}.` : ''}
         </p>
       )}
+
+      {j.vendors.length > 0 && <NewVendors list={j.vendors} />}
 
       {!running && j.conflicts.length > 0 && (
         <div className="up-offer">

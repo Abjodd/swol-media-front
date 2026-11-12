@@ -20,6 +20,7 @@ export default function CreatorForm({ creator: initial, onClose, onSaved, onFetc
     city: creator.city || '',
     state: creator.state || '',
     district: creator.district || '',
+    constituency: creator.constituency || '',
     commercial: creator.commercial || '',
     categories: (creator.categories || []).join(', '),
     bio: creator.bio || '',
@@ -173,6 +174,9 @@ export default function CreatorForm({ creator: initial, onClose, onSaved, onFetc
           </Field>
           <Field label="State">
             <input value={f.state} onChange={set('state')} />
+          </Field>
+          <Field label="Constituency">
+            <input value={f.constituency} onChange={set('constituency')} placeholder="e.g. Kasba Peth" />
           </Field>
           <Field label="Genre" hint="Comma separated">
             <input value={f.categories} onChange={set('categories')} placeholder="Beauty, lifestyle" />

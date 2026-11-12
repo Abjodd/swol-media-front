@@ -114,6 +114,12 @@ export const api = {
   addAssets: (id, links) => request(`/campaigns/${id}/assets`, { method: 'POST', body: { links } }),
   retryAsset: (id, aid) => request(`/campaigns/${id}/assets/${aid}/retry`, { method: 'POST' }),
   deleteAsset: (id, aid) => request(`/campaigns/${id}/assets/${aid}`, { method: 'DELETE' }),
+  // "Update from sheet": rows = [{ input, values: { price, vendor, state, …, 'extra:Column': value } }]
+  overrideCreators: (id, rows, confirmedVendors = []) => request(`/campaigns/${id}/creators/overrides`, { method: 'POST', body: { rows, confirmedVendors } }),
+  renameExtraColumn: (id, from, to) => request(`/campaigns/${id}/creators/extra-columns`, { method: 'PATCH', body: { from, to } }),
+  removeExtraColumn: (id, from) => request(`/campaigns/${id}/creators/extra-columns`, { method: 'PATCH', body: { from, remove: true } }),
+  // vendor names in a sheet → the exact vendor, or look-alikes ("abjod" / "abjod d") to ask about
+  matchVendors: (names) => request('/vendors/match', { method: 'POST', body: { names } }),
   setCreatorPrices: (id, rows) => request(`/campaigns/${id}/creators/prices`, { method: 'POST', body: { rows } }),
   setCreatorCost: (id, sid, data) => request(`/campaigns/${id}/creators/${sid}/cost`, { method: 'PATCH', body: data }),
   removeCampaignCreator: (id, sid) => request(`/campaigns/${id}/creators/${sid}`, { method: 'DELETE' }),

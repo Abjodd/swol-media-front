@@ -258,7 +258,7 @@ export default function CampaignDetail() {
             <span className="c-code">{c.code}</span>
             <StatusChip status={c.status} />
           </div>
-          <h2>{c.name}</h2>
+          <CampaignName name={c.name} onSave={(name) => patch({ name }, 'Campaign renamed')} />
           <p className="cd-sub">
             <Icon name="building" size={16} /> {c.client?.name}
             <span className="dot">•</span>
@@ -415,6 +415,8 @@ export default function CampaignDetail() {
             toast={toast}
             downloads={downloadsFor(c)}
             onPricesSet={loadCreators}
+            extraColumns={c.extraColumns || []}
+            onColumnsChanged={() => (load(), loadCreators())}
             busy={moving}
             onMove={move}
             onRemove={tab === 'approved' ? null : removeCreator}
@@ -558,4 +560,41 @@ function downloadsFor(c) {
     { label: 'Full campaign (XLSX)', hint: 'Every creator at every stage (first sheet), plus the campaign summary and vendors', url: api.exportUrl(c._id), name: `${c.code} ${c.name} – full campaign.xlsx` },
     { label: 'For the client (XLSX)', hint: 'Every creator on the campaign (not rejected): username, followers, name, profile link, price, phone, email, bio', url: api.clientExportUrl(c._id), name: `${c.code} ${c.name} – creators for client.xlsx` },
   ];
+}
+
+// The campaign's name, renamed in place: click the pencil (or the name), type, Enter to save, Esc to cancel
+function CampaignName({ name, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [busy, setBusy] = useState(false);
+  const start = () => (setDraft(name), setEditing(true));
+  const save = async (e) => {
+    e?.preventDefault();
+    const v = draft.trim();
+    if (!v || v === name) return setEditing(false);
+    setBusy(true);
+    const ok = await onSave(v);
+    setBusy(false);
+    if (ok) setEditing(false);
+  };
+  if (!editing)
+    return (
+      <h2 className="cd-name">
+        <span onDoubleClick={start}>{name}</span>
+        <button type="button" className="cd-name-edit" onClick={start} title="Rename campaign" aria-label="Rename campaign">
+          <Icon name="edit" size={16} />
+        </button>
+      </h2>
+    );
+  return (
+    <form className="cd-name-form" onSubmit={save}>
+      <input autoFocus value={draft} maxLength={140} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setEditing(false)} aria-label="Campaign name" />
+      <button className="btn primary sm" disabled={busy || !draft.trim()}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+      <button type="button" className="btn ghost sm" onClick={() => setEditing(false)}>
+        Cancel
+      </button>
+    </form>
+  );
 }

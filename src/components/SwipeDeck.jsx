@@ -12,13 +12,13 @@ const photoFor = (k) =>
     ? withSession(k.avatarUrl)
     : k.avatarUrl || (PHOTO_SOURCE[k.platform] ? `https://unavatar.io/${PHOTO_SOURCE[k.platform]}/${encodeURIComponent(k.handle)}?fallback=false` : '');
 
-// still waiting for the Instagram (HikerAPI) lookup — show a loading shimmer instead of blanks
-export const isFetching = (k) => k?.ig?.status === 'queued';
+// still waiting for the Instagram (HikerAPI) or YouTube / Facebook (SocialKit) lookup — show a loading shimmer instead of blanks
+export const isFetching = (k) => k?.ig?.status === 'queued' || k?.social?.status === 'queued';
 export const Shimmer = ({ w }) => <i className="ig-shimmer" style={w ? { width: w } : undefined} aria-label="Loading from Instagram" />;
 // "Fetching from Instagram" with animated dots, under a creator's name
 export const FetchingTag = ({ k }) =>
   isFetching(k) ? (
-    <span className="ig-fetching" title="Photo, followers and averages are on their way from Instagram">
+    <span className="ig-fetching" title={`Photo, followers and details are on their way from ${k.ig?.status === 'queued' ? 'Instagram' : k.platform === 'facebook' ? 'Facebook' : 'YouTube'}`}>
       Fetching data<b>.</b><b>.</b><b>.</b>
     </span>
   ) : null;

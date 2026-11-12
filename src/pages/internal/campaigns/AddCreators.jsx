@@ -4,6 +4,7 @@ import { api } from '../../../api.js';
 import Icon from '../../../components/Icon.jsx';
 import { Panel, Field, PLATFORM_LABEL, fmtNum } from '../../../components/ui.jsx';
 import { readSheetFile, rowsToEntries, TEMPLATE_HEADERS } from '../../../sheet.js';
+import VendorCheck, { applyVendorChoices, checkVendors } from '../../../components/VendorCheck.jsx';
 
 // Pasted text → entries: one per line ("link", "Name, link", "@handle", "Name, @handle").
 // A pasted sheet with a header row (copied from Google Sheets / Excel) is read like an upload.
@@ -33,7 +34,7 @@ function pastedEntries(text) {
 }
 
 // the sourcing sheet's columns, in its order (SN is only a row number)
-const PREVIEW_COLS = ['vendor', 'handle', 'followers', 'name', 'link', 'commercial', 'state', 'city', 'district', 'genre'];
+const PREVIEW_COLS = ['vendor', 'handle', 'followers', 'name', 'link', 'commercial', 'state', 'city', 'district', 'constituency', 'genre'];
 const hasCost = (e) => /\d/.test(String(e.commercial ?? ''));
 
 // ── pricing: chosen before adding creators ─────────────────────────────────
@@ -137,6 +138,13 @@ export default function AddCreators({ campaign, assignments = [], vendorName, on
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const fileRef = useRef(null);
+  // Vendor column names that look like a vendor we already have ("abjod d" / "abjod"): asked before uploading
+  const [vq, setVq] = useState(null); // null = not checked yet
+  const [vchoice, setVchoice] = useState({});
+  useEffect(() => {
+    setVq(null);
+    setVchoice({});
+  }, [sheet, text, mode, by]);
 
   // every creator needs a cost; rows without one are held back (and listed)
   const all = useMemo(() => {
@@ -187,14 +195,31 @@ export default function AddCreators({ campaign, assignments = [], vendorName, on
       return setError(mode === 'sheet' ? 'Upload a sheet first' : mode === 'links' ? 'Paste at least one profile link' : 'Add the creator’s username or profile link');
     if (pricingProblem) return setError(pricingProblem);
     const plan = manual ? { mode: 'manual' } : pricing === 'bucket' ? { mode: 'bucket', budget: budgetNum } : { mode: 'slab', slabs: slabCheck.list, saveDefault };
+    // team uploads credited by the sheet's Vendor column: ask about look-alike vendor names first
+    let questions = vq || [];
+    if (!vendorName && !by && entries.some((x) => x.vendor) && vq === null) {
+      setBusy(true);
+      try {
+        questions = await checkVendors(api, entries.map((x) => x.vendor).filter((v) => v && !/^swol(\s*media)?$/i.test(v)));
+      } catch (err) {
+        setBusy(false);
+        return setError(err.message);
+      }
+      setBusy(false);
+      setVq(questions);
+      if (questions.length) return setError('Check the vendor names below, then press Add again');
+    }
+    if (questions.some((q) => vchoice[q.name] === undefined)) return setError('Answer the vendor question below first');
+    const { rename, confirmed } = applyVendorChoices(questions, vchoice);
     // any number of rows: they go up in the background (progress in the top-right corner) while the app stays usable
     startUpload({
       campaignId: campaign._id,
       campaignName: campaign.name,
-      entries: entries.map(({ _row, ...x }) => x),
+      entries: entries.map(({ _row, ...x }) => (x.vendor ? { ...x, vendor: rename(x.vendor) } : x)),
       platform,
       assignmentId: by || undefined,
       pricing: plan,
+      confirmedVendors: confirmed,
     });
     onClose();
   };
@@ -206,7 +231,7 @@ export default function AddCreators({ campaign, assignments = [], vendorName, on
   // preview columns; with a bucket / slab the worked-out cost sits right after Followers instead of Commercial
   const previewCols = PREVIEW_COLS.filter((k) => found.includes(k) && (manual || k !== 'commercial')).flatMap((k) => (!manual && k === 'followers' ? [k, 'est'] : [k]));
   if (!manual && !previewCols.includes('est')) previewCols.splice(previewCols.indexOf('handle') + 1, 0, 'est');
-  const LABEL = { vendor: 'Vendor', handle: 'Username', followers: 'Followers', name: 'Name', link: 'Profile link', commercial: 'Commercial', state: 'State', city: 'City', district: 'District', genre: 'Genre', following: 'Following', avgViews: 'Avg views', engagement: 'Engagement', photo: 'Photo', phone: 'Phone', email: 'Email', bio: 'Bio', note: 'Note' };
+  const LABEL = { vendor: 'Vendor', handle: 'Username', followers: 'Followers', name: 'Name', link: 'Profile link', commercial: 'Commercial', state: 'State', city: 'City', district: 'District', constituency: 'Constituency', genre: 'Genre', following: 'Following', avgViews: 'Avg views', engagement: 'Engagement', photo: 'Photo', phone: 'Phone', email: 'Email', bio: 'Bio', note: 'Note' };
 
   return (
     <Panel
@@ -366,6 +391,7 @@ export default function AddCreators({ campaign, assignments = [], vendorName, on
         </div>
       ) : (
       <form id="add-creators" onSubmit={submit} noValidate className="ac">
+        {vq?.length > 0 && <VendorCheck questions={vq} choice={vchoice} setChoice={(c) => (setVchoice(c), setError(''))} />}
         <div className="pr-chosen">
           <span>
             <Icon name={PRICING.find((o) => o.key === pricing).icon} size={15} /> <b>Pricing:</b> {pricingLabel}

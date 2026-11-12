@@ -16,7 +16,7 @@ const readMuted = () => {
 };
 const SWIPE = 70;
 
-export default function ReelDeck({ items, emptyTitle = 'No reels yet', emptyText = 'Reels appear here as soon as the vendors add them.' }) {
+export default function ReelDeck({ items, showVendor = false, emptyTitle = 'No reels yet', emptyText = 'Reels appear here as soon as the vendors add them.' }) {
   const [i, setI] = useState(0);
   const [muted, setMuted] = useState(readMuted);
   const [drag, setDrag] = useState(null); // { x0, dx }
@@ -193,6 +193,11 @@ export default function ReelDeck({ items, emptyTitle = 'No reels yet', emptyText
             )}
             {r.caption && <p className="rd-cap">{r.caption}</p>}
             <p className="rd-meta">
+              {showVendor && (
+                <span className="rd-vendor">
+                  Vendor: <b>{r.vendor?.name || 'Swol Media'}</b> ·{' '}
+                </span>
+              )}
               {r.postedAt ? `Posted ${fmtDate(r.postedAt)} · ` : ''}
               <a href={r.url} target="_blank" rel="noreferrer">
                 Open on Instagram <Icon name="external" size={12} />

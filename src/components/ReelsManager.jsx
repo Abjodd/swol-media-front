@@ -38,7 +38,8 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
     return () => clearTimeout(t);
   }, [items, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const links = useMemo(() => String(text).split(/[\s,]+/).filter((x) => /instagram\.com|instagr\.am/i.test(x)), [text]);
+  // anything link-like is sent, so links that aren't reels come back as "skipped" instead of vanishing
+  const links = useMemo(() => String(text).split(/[\s,]+/).filter((x) => /^https?:\/\/|^www\.|instagram\.com|instagr\.am|^[\w-]+(\.[\w-]+)+\/\S/i.test(x)), [text]);
   const add = async () => {
     setBusy(true);
     try {
@@ -72,16 +73,21 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
     }
   };
 
-  const matched = (items || []).filter((a) => a.status === 'ok');
+  // the team: who uploaded each reel — a vendor, or Swol Media when the team added it
+  const vendorOf = (a) => a.vendor?.name || 'Swol Media';
+  const vendors = useMemo(() => (role === 'internal' ? [...new Set((items || []).map(vendorOf))].sort() : []), [items, role]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [vendorPick, setVendorPick] = useState('');
+  const shown = useMemo(() => (vendorPick ? (items || []).filter((a) => vendorOf(a) === vendorPick) : items || []), [items, vendorPick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const matched = shown.filter((a) => a.status === 'ok');
   const byCreator = useMemo(() => {
     const m = new Map();
-    for (const a of items || []) {
+    for (const a of shown) {
       const key = a.creator?._id || `x:${a.owner || a._id}`;
       if (!m.has(key)) m.set(key, { creator: a.creator, owner: a.owner, list: [] });
       m.get(key).list.push(a);
     }
     return [...m.values()].sort((x, y) => Boolean(y.creator) - Boolean(x.creator));
-  }, [items]);
+  }, [shown]);
 
   return (
     <section className="card rm">
@@ -100,9 +106,22 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
               <Icon name="play" size={14} /> Watch <span>{matched.length}</span>
             </button>
             <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>
-              <Icon name="note" size={14} /> All links <span>{items?.length || 0}</span>
+              <Icon name="note" size={14} /> All links <span>{shown.length}</span>
             </button>
           </div>
+        )}
+        {role === 'internal' && vendors.length > 1 && (
+          <label className="rm-vendor">
+            <span>Vendor</span>
+            <select value={vendorPick} onChange={(e) => setVendorPick(e.target.value)}>
+              <option value="">All vendors</option>
+              {vendors.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
       </div>
 
@@ -127,7 +146,7 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
       {items === null ? (
         <div className="skel" style={{ height: 240 }} />
       ) : view === 'watch' ? (
-        <ReelDeck items={matched} emptyText={items.length ? 'None of the links are matched to a creator yet — see “All links”.' : 'Reels appear here as soon as vendors add them in their Assets tab.'} />
+        <ReelDeck showVendor={role === 'internal'} items={matched} emptyText={items.length ? 'None of the links are matched to a creator yet — see “All links”.' : 'Reels appear here as soon as vendors add them in their Assets tab.'} />
       ) : !items.length ? (
         <p className="rm-none">No reels added yet.</p>
       ) : (
@@ -165,6 +184,11 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
                       </a>
                       <div className="rm-meta">
                         <span className={`rm-st ${tone}`}>{label}</span>
+                        {role === 'internal' && (
+                          <span className="rm-vend" title="Who uploaded this reel">
+                            <b>Vendor</b> {vendorOf(a)}
+                          </span>
+                        )}
                         {a.status === 'ok' && (a.plays || a.likes) > 0 && (
                           <small>
                             {a.plays ? `${fmtCompact(a.plays)} plays · ` : ''}
@@ -173,8 +197,7 @@ export default function ReelsManager({ campaignId, role, toast, canAdd = true })
                         )}
                         {a.error && a.status !== 'ok' && <small className="rm-err">{a.error}</small>}
                         <small className="muted">
-                          {role === 'internal' && a.vendor ? `${a.vendor.name} · ` : ''}
-                          {fmtDate(a.createdAt)}
+                          Added {fmtDate(a.createdAt)}
                         </small>
                         <span className="rm-acts">
                           {['unmatched', 'error', 'not_found'].includes(a.status) && (

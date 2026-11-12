@@ -7,7 +7,7 @@ import { fmtNum, timeAgo } from './ui.jsx';
 // The bell in the top bar: problems that need a look, grouped by campaign —
 // rows of an upload that weren't valid links, Instagram profiles that couldn't be fetched
 // (renamed, deleted, private), and reel links that are broken or not from the campaign's creators.
-const ICON = { bad_links: 'link', reel_links: 'link', ig_not_found: 'alert', ig_failed: 'alert', ig_private: 'lock', ig_paused: 'clock', reel_problem: 'play', price_changed: 'wallet', creator_replaced: 'alert' };
+const ICON = { bad_links: 'link', reel_links: 'link', ig_not_found: 'alert', ig_failed: 'alert', ig_private: 'lock', ig_paused: 'clock', reel_problem: 'play', price_changed: 'wallet', creator_replaced: 'alert', vendor_added: 'vendors', vendor_similar: 'vendors', social_not_found: 'alert', social_failed: 'alert' };
 const POLL = 60 * 1000;
 
 export default function NotificationBell({ role }) {
@@ -102,7 +102,7 @@ export default function NotificationBell({ role }) {
               <div className="nb-empty">
                 <Icon name="check" size={20} />
                 <strong>All clear</strong>
-                <p>Bad links, Instagram profiles that couldn’t be fetched and reel problems show up here, with their campaign.</p>
+                <p>Bad links, profiles that couldn’t be fetched, look-alike vendor names and reel problems show up here, with their campaign.</p>
               </div>
             ) : (
               groups.map((g) => (

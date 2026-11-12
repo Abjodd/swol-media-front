@@ -125,6 +125,7 @@ const ALIASES = {
   state: ['state'],
   city: ['city', 'location'],
   district: ['district'],
+  constituency: ['constituency', 'assembly constituency', 'ac', 'pc', 'lok sabha', 'lok sabha constituency', 'vidhan sabha', 'assembly', 'seat'],
   genre: ['genre', 'category', 'categories', 'niche', 'content type'],
   following: ['following'],
   avgViews: ['avg views', 'average views', 'avg. views', 'views'],
@@ -170,7 +171,7 @@ export function rowsToEntries(rows) {
   return { entries, problems, map };
 }
 
-export const TEMPLATE_HEADERS = ['SN', 'Vendor', 'Username', 'Followers', 'Name', 'Profile Link', 'Commercial', 'State', 'City', 'District', 'Genre'];
+export const TEMPLATE_HEADERS = ['SN', 'Vendor', 'Username', 'Followers', 'Name', 'Profile Link', 'Commercial', 'State', 'City', 'District', 'Constituency', 'Genre'];
 
 // ── Price sheets: two columns — username or profile link, and the price ─────
 // Headers are optional; without them the first column is the creator and the second the price.
@@ -200,4 +201,102 @@ export function rowsToPrices(rows) {
     if (input || value) out.push({ input, price: value, _row: i + 1 });
   }
   return { rows: out, header: start > 0 ? [rows[start - 1]?.[who], rows[start - 1]?.[price]] : null };
+}
+
+// ── "Update from sheet": a creator column + any other columns, each mapped to a field ──────────
+// Fields the server can overwrite; anything else becomes one of the campaign's own extra columns.
+export const OVERRIDE_FIELDS = [
+  ['price', 'Price (for the client)'],
+  ['cost', 'Cost (vendor)'],
+  ['vendor', 'Vendor'],
+  ['state', 'State'],
+  ['city', 'City'],
+  ['district', 'District'],
+  ['constituency', 'Constituency'],
+  ['followers', 'Followers'],
+  ['name', 'Name'],
+  ['genre', 'Genre'],
+  ['phone', 'Phone'],
+  ['email', 'Email'],
+  ['bio', 'Bio'],
+  ['avgViews', 'Avg views'],
+];
+const GUESS = [
+  ['price', /^(price|client price|client cost|final price|selling price|price for client|client rate|quote to client)$/],
+  ['cost', /(^cost$|vendor cost|commercial|vendor rate|vendor price|charges|^fee|^rate$|quote)/],
+  ['vendor', /(vendor|agency)/],
+  ['constituency', /(constituency|assembly|vidhan|lok sabha|^ac$|^pc$|^seat$)/],
+  ['district', /district/],
+  ['state', /^state/],
+  ['city', /^(city|location|town)$/],
+  ['followers', /(followers|subscribers|^fans$)/],
+  ['avgViews', /(avg|average).*views|^views$/],
+  ['name', /^(name|full name|creator name|influencer name)$/],
+  ['genre', /(genre|categor|niche|content type)/],
+  ['phone', /(phone|mobile|whatsapp|contact no|contact number)/],
+  ['email', /e-?mail/],
+  ['bio', /^(bio|about)$/],
+];
+const WHO = /(user ?name|handle|profile|link|url|creator id|insta|instagram|channel|youtube|^id$|^creator$)/;
+const looksLikeWho = (v) => /^@|instagram\.com|youtube\.com|youtu\.be|facebook\.com|^https?:/i.test(String(v || '').trim());
+export const guessField = (header, preset) => {
+  const h = norm(header);
+  if (!h) return null;
+  if (preset === 'price' && /(^price|^cost$|commercial|rate|amount|^₹)/.test(h)) return 'price';
+  for (const [field, rx] of GUESS) if (rx.test(h)) return field;
+  return null;
+};
+
+// rows (arrays, from a file or a paste) → { header, creatorCol, columns: [{ index, header, field, name }], body }
+// preset ('price' | 'vendor' | 'location' | 'any') decides what a sheet without headers holds.
+export function readOverride(rows, preset = 'any') {
+  rows = rows.filter((r) => r.some((x) => String(x ?? '').trim()));
+  let headerRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+    const r = rows[i];
+    if (r.some((c) => WHO.test(norm(c)) || guessField(c)) && !r.some(looksLikeWho)) {
+      headerRow = i;
+      break;
+    }
+  }
+  const width = Math.max(0, ...rows.map((r) => r.length));
+  const header = headerRow >= 0 ? rows[headerRow].map((x) => String(x ?? '').trim()) : null;
+  let creatorCol = 0;
+  if (header) {
+    const w = header.findIndex((h) => WHO.test(norm(h)));
+    if (w >= 0) creatorCol = w;
+  } else {
+    // no headers: the column whose cells look like handles / links
+    const sample = rows.slice(0, 20);
+    const score = (i) => sample.filter((r) => looksLikeWho(r[i]) || /^[a-z0-9._]{3,30}$/i.test(String(r[i] || '').trim())).length;
+    let best = 0;
+    for (let i = 1; i < width; i++) if (score(i) > score(best)) best = i;
+    creatorCol = best;
+  }
+  const others = Array.from({ length: width }, (_, i) => i).filter((i) => i !== creatorCol);
+  const LOCATION = others.length === 1 ? ['constituency'] : ['state', 'city', 'district', 'constituency'];
+  const used = new Set();
+  const columns = others.map((index, k) => {
+    const head = header ? header[index] : '';
+    let field = header ? guessField(head, preset) : preset === 'price' && k === 0 ? 'price' : preset === 'vendor' && k === 0 ? 'vendor' : preset === 'location' ? LOCATION[k] || null : null;
+    if (field && used.has(field)) field = null; // two columns can't fill the same field
+    if (field) used.add(field);
+    const name = head || `Column ${index + 1}`;
+    return { index, header: head, field: field || 'extra', name: name.slice(0, 40) };
+  });
+  const body = rows.slice(headerRow + 1).map((r, i) => ({ _row: headerRow + i + 2, cells: r.map((x) => String(x ?? '').trim()) }));
+  return { header, headerRow, creatorCol, columns, body };
+}
+
+// a pasted block: tabs (copied from Excel / Google Sheets) or, on typed lines, "who, value"
+export function pasteRows(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+$/, ''))
+    .filter((l) => l.trim())
+    .map((l) => {
+      if (l.includes('\t')) return l.split('\t').map((x) => x.trim());
+      const m = l.trim().match(/^(\S+?)[\s,;|]+(.+)$/); // first thing = who, the rest = the value ("₹15,000" keeps its comma)
+      return m ? [m[1].replace(/[,;|]$/, ''), m[2].trim()] : [l.trim()];
+    });
 }

@@ -353,3 +353,71 @@ export function whenVisible(fn) {
   };
   document.addEventListener('visibilitychange', on);
 }
+
+// ── Followers filter: none / less than / more than a number you type / a size band ──
+// value: '' | 'none' | 'lt:50000' | 'gt:100000' | 'band:lo:hi'
+export const toCount = (v) => {
+  const m = String(v ?? '').toLowerCase().replace(/[,\s]/g, '').match(/^(\d+(?:\.\d+)?)(k|m|l|lac|lakh|cr)?$/);
+  return m ? Math.round(parseFloat(m[1]) * ({ k: 1e3, m: 1e6, l: 1e5, lac: 1e5, lakh: 1e5, cr: 1e7 }[m[2]] || 1)) : null;
+};
+const BANDS = [
+  ['0:10000', 'Under 10K'],
+  ['10000:100000', '10K–100K'],
+  ['100000:500000', '100K–500K'],
+  ['500000:1000000', '500K–1M'],
+  ['1000000:', '1M+'],
+];
+export function followersMatch(value, followers) {
+  if (!value) return true;
+  const f = Number(followers) || 0;
+  if (value === 'none') return f === 0;
+  const [kind, a, b] = value.split(':');
+  if (kind === 'lt') return a === '' || f < Number(a);
+  if (kind === 'gt') return a === '' || f > Number(a);
+  if (kind === 'band') return f > 0 && f >= Number(a) && (b === '' || f < Number(b));
+  return true;
+}
+export function FollowersFilter({ value = '', onChange, compact = false }) {
+  const kind = value === 'none' ? 'none' : value.split(':')[0] === 'band' ? value : value.split(':')[0];
+  const num = ['lt', 'gt'].includes(kind) ? value.split(':')[1] : '';
+  const [draft, setDraft] = useState(num ? fmtCompactInput(num) : '');
+  useEffect(() => {
+    if (!['lt', 'gt'].includes(kind)) setDraft('');
+  }, [kind]);
+  const pick = (k) => {
+    if (k === 'lt' || k === 'gt') return onChange(`${k}:${toCount(draft) ?? ''}`);
+    onChange(k);
+  };
+  const type = (v) => {
+    setDraft(v);
+    const n = toCount(v);
+    onChange(`${kind}:${n ?? ''}`);
+  };
+  return (
+    <span className={`ff ${compact ? 'compact' : ''} ${value ? 'on' : ''}`}>
+      <select className={`cs-fsel ${value ? 'on' : ''}`} value={kind || ''} onChange={(e) => pick(e.target.value)} aria-label="Filter followers" title="Filter followers">
+        <option value="">{compact ? 'All' : 'Any followers'}</option>
+        <option value="none">No followers (0)</option>
+        <option value="lt">Less than…</option>
+        <option value="gt">More than…</option>
+        {BANDS.map(([k, l]) => (
+          <option key={k} value={`band:${k}`}>
+            {l}
+          </option>
+        ))}
+      </select>
+      {['lt', 'gt'].includes(kind) && (
+        <input
+          className="cs-ftext on ff-num"
+          value={draft}
+          onChange={(e) => type(e.target.value)}
+          placeholder={kind === 'lt' ? 'e.g. 50k' : 'e.g. 1L'}
+          inputMode="numeric"
+          aria-label={kind === 'lt' ? 'Fewer followers than' : 'More followers than'}
+          autoFocus
+        />
+      )}
+    </span>
+  );
+}
+const fmtCompactInput = (n) => String(n);

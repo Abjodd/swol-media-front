@@ -252,7 +252,9 @@ export default function Settings() {
                   <td data-label="Type">
                     <span className={`role role-${u.role}`}>{roleLabel(u.role)}</span>
                   </td>
-                  <td data-label="Login ID" className="acc-id">{u.email}</td>
+                  <td data-label="Login ID" className="acc-id">
+                    <LoginIdCell user={u} onSaved={load} />
+                  </td>
                   <td data-label="Password">
                     <PasswordCell key={`${u.id}-${u.passwordUpdatedAt}`} user={u} onReset={() => onReset(u)} />
                   </td>
@@ -289,6 +291,50 @@ export default function Settings() {
 
       {issued && <CredentialModal issued={issued} onClose={() => setIssued(null)} onChanged={load} />}
     </div>
+  );
+}
+
+// the login ID, editable in place (e.g. to replace one generated for a vendor added from a sheet)
+function LoginIdCell({ user, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(user.email);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const save = async (e) => {
+    e.preventDefault();
+    if (value.trim().toLowerCase() === user.email) return setEditing(false);
+    setBusy(true);
+    setError('');
+    try {
+      await api.updateUser(user.id, { email: value });
+      setEditing(false);
+      onSaved?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!editing)
+    return (
+      <span className="lid">
+        <span>{user.email}</span>
+        <button type="button" className="lid-edit" onClick={() => (setValue(user.email), setError(''), setEditing(true))} title="Change login ID" aria-label={`Change login ID for ${user.name}`}>
+          <Icon name="edit" size={13} />
+        </button>
+      </span>
+    );
+  return (
+    <form className="lid-form" onSubmit={save}>
+      <input autoFocus type="email" value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setEditing(false)} aria-label="Login ID" />
+      <button className="btn primary sm" disabled={busy}>
+        {busy ? '…' : 'Save'}
+      </button>
+      <button type="button" className="btn ghost sm" onClick={() => setEditing(false)}>
+        Cancel
+      </button>
+      {error && <small className="lid-err">{error}</small>}
+    </form>
   );
 }
 

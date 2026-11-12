@@ -4,13 +4,14 @@ import { api } from '../../api.js';
 import Icon from '../../components/Icon.jsx';
 import CreatorForm from '../../components/CreatorForm.jsx';
 import { CreatorPhoto, FetchingTag, Shimmer, Verified, isFetching } from '../../components/SwipeDeck.jsx';
-import { Empty, PLATFORM_LABEL, SUB_STATUS, fmtCompact, fmtINR, fmtNum, useShowMore, useToast } from '../../components/ui.jsx';
+import { Empty, FollowersFilter, PLATFORM_LABEL, SUB_STATUS, fmtCompact, fmtINR, fmtNum, useShowMore, useToast } from '../../components/ui.jsx';
 
 // The creator database — every profile added to any campaign, by vendors or by our team.
 export default function Creators() {
   const [data, setData] = useState(null);
   const [q, setQ] = useState('');
   const [platform, setPlatform] = useState('');
+  const [followers, setFollowers] = useState(''); // none | lt:N | gt:N | band:lo:hi
   const [editing, setEditing] = useState(null);
   const [ig, setIg] = useState(null); // HikerAPI status: { enabled, queued } — new creators are fetched once, in the background
 
@@ -23,24 +24,24 @@ export default function Creators() {
     const t = setInterval(() => {
       if (document.hidden) return; // nobody is looking — check again next time
       api.instagramStatus().then(setIg).catch(() => {});
-      api.listCreators({ q, platform }).then(setData).catch(() => {});
+      api.listCreators({ q, platform, followers }).then(setData).catch(() => {});
     }, 6000);
     return () => clearInterval(t);
-  }, [ig?.queued, q, platform]);
+  }, [ig?.queued, q, platform, followers]);
 
   const [toast, toastNode] = useToast();
   // draw 60 rows, more as you scroll
-  const [rows, moreRows] = useShowMore(data?.items || [], { resetKey: `${q}|${platform}` });
+  const [rows, moreRows] = useShowMore(data?.items || [], { resetKey: `${q}|${platform}|${followers}` });
 
   useEffect(() => {
     const t = setTimeout(() => {
       api
-        .listCreators({ q, platform })
+        .listCreators({ q, platform, followers })
         .then(setData)
         .catch((e) => toast(e.message, true));
     }, 220);
     return () => clearTimeout(t);
-  }, [q, platform]);
+  }, [q, platform, followers]);
 
   return (
     <div className="page">
@@ -49,6 +50,7 @@ export default function Creators() {
           <Icon name="search" size={18} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, handle or city" />
         </div>
+        <FollowersFilter value={followers} onChange={setFollowers} />
         <select className="cr-platform" value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label="Platform">
           <option value="">All platforms</option>
           {Object.entries(PLATFORM_LABEL).map(([k, l]) => (
@@ -64,8 +66,8 @@ export default function Creators() {
       ) : data.items.length === 0 ? (
         <Empty
           icon="creators"
-          title={q || platform ? 'No creators match' : 'No creators yet'}
-          text={q || platform ? 'Try another search.' : 'Creators appear here as soon as they are added to a campaign — by a vendor or by your team.'}
+          title={q || platform || followers ? 'No creators match' : 'No creators yet'}
+          text={q || platform || followers ? 'Try another search or filter.' : 'Creators appear here as soon as they are added to a campaign — by a vendor or by your team.'}
         />
       ) : (
         <section className="card cs">
