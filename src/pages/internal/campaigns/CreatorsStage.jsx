@@ -1,4 +1,5 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../../api.js';
 import SheetOverride, { PRESETS } from './SheetOverride.jsx';
 import { Panel } from '../../../components/ui.jsx';
@@ -173,15 +174,120 @@ function sortRows(list, sort) {
     })
     .map(([s]) => s);
 }
+// A column header: its name, and a ↕ button that opens the sort options for that column.
+// ↕ = not sorted; ↑ / ↓ = sorted this way. (Phones hide the headers and use "Sort by" above the list instead.)
 function SortHead({ k, label, sort, setSort, className }) {
+  const [open, setOpen] = useState(null); // { top, left } of the menu while open
+  const btn = useRef(null);
+  const menu = useRef(null);
   const on = sort?.key === k;
-  const first = (k.startsWith('x:') ? 'asc' : SORTS[k]?.[2]) || 'asc';
-  const next = () => setSort(!on ? { key: k, dir: first } : sort.dir === first ? { key: k, dir: first === 'asc' ? 'desc' : 'asc' } : null);
+  const numeric = NUMERIC.includes(k);
+  const place = () => {
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return null;
+    return { top: r.bottom + 6, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 228)), gone: r.bottom < 0 || r.top > window.innerHeight };
+  };
+  const show = () => setOpen(place());
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return;
+      if (e.type === 'mousedown' && (menu.current?.contains(e.target) || btn.current?.contains(e.target))) return;
+      setOpen(null);
+    };
+    // the page or the table (sideways) scrolls: the menu stays under its button, and closes once that's off screen
+    const follow = () => {
+      const at = place();
+      setOpen(!at || at.gone ? null : at);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    window.addEventListener('resize', follow);
+    window.addEventListener('scroll', follow, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+      window.removeEventListener('resize', follow);
+      window.removeEventListener('scroll', follow, true);
+    };
+  }, [Boolean(open)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const choose = (dir) => {
+    setSort(dir ? { key: k, dir } : null);
+    setOpen(null);
+  };
+  const opts = [
+    ['asc', 'sortUp', k === 'added' ? 'Oldest first' : numeric ? 'Low → high' : 'A → Z'],
+    ['desc', 'sortDown', k === 'added' ? 'Newest first' : numeric ? 'High → low' : 'Z → A'],
+  ];
+  if (numeric && k !== 'added') opts.reverse(); // numbers: biggest first is the usual question
+  const host = typeof document !== 'undefined' ? document.querySelector('.app') || document.body : null;
   return (
-    <button type="button" className={`cs-sort ${on ? `on ${sort.dir}` : ''} ${className || ''}`} onClick={next} title={`Sort by ${label.toLowerCase()}`} aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      {label}
-      <Icon name="chevronDown" size={12} />
-    </button>
+    <span className={`cs-sorth ${on ? 'on' : ''} ${className || ''}`}>
+      <span className="cs-sort-l">{label}</span>
+      <button
+        ref={btn}
+        type="button"
+        className={`cs-sortbtn ${on ? `on ${sort.dir}` : ''} ${open ? 'open' : ''}`}
+        onClick={() => (open ? setOpen(null) : show())}
+        aria-haspopup="menu"
+        aria-expanded={Boolean(open)}
+        aria-label={`Sort by ${label}${on ? ` (now ${opts.find(([d]) => d === sort.dir)[2]})` : ''}`}
+        title={`Sort by ${label.toLowerCase()}`}
+      >
+        <Icon name={on ? (sort.dir === 'asc' ? 'sortUp' : 'sortDown') : 'sortBoth'} size={13} />
+      </button>
+      {open &&
+        host &&
+        createPortal(
+          <div ref={menu} className="cs-sortmenu" role="menu" aria-label={`Sort by ${label}`} style={{ top: open.top, left: open.left }}>
+            <small>Sort by {label}</small>
+            {opts.map(([dir, icon, text]) => (
+              <button key={dir} type="button" role="menuitemradio" aria-checked={on && sort.dir === dir} className={on && sort.dir === dir ? 'on' : ''} onClick={() => choose(dir)}>
+                <Icon name={icon} size={15} /> {text}
+                {on && sort.dir === dir && <Icon name="check" size={14} className="cs-sm-ok" />}
+              </button>
+            ))}
+            {on && (
+              <button type="button" role="menuitem" className="cs-sm-clear" onClick={() => choose(null)}>
+                <Icon name="close" size={14} /> Clear sort
+              </button>
+            )}
+          </div>,
+          host
+        )}
+    </span>
+  );
+}
+
+// "Sort by": every column by name, and an arrow button for the direction (up = A→Z / low→high, down = Z→A / high→low).
+// No sort chosen = Date added, newest first.
+const NUMERIC = ['added', 'followers', 'cost', 'price', 'margin', 'status'];
+const dirText = (key, dir) => (key === 'added' ? (dir === 'asc' ? 'Oldest first' : 'Newest first') : NUMERIC.includes(key) ? (dir === 'asc' ? 'Low → high' : 'High → low') : dir === 'asc' ? 'A → Z' : 'Z → A');
+function SortBar({ sort, setSort, columns, className = '' }) {
+  const key = sort?.key || 'added';
+  const dir = sort?.dir || 'desc';
+  const pick = (k) => setSort(k === 'added' ? null : { key: k, dir: (k.startsWith('x:') ? 'asc' : SORTS[k]?.[2]) || 'asc' });
+  const flip = () => {
+    const d = dir === 'asc' ? 'desc' : 'asc';
+    setSort(key === 'added' && d === 'desc' ? null : { key, dir: d });
+  };
+  return (
+    <div className={`cs-sortby ${className}`} role="group" aria-label="Sort">
+      <span className="cs-sortby-l">
+        <Icon name="sortBoth" size={14} /> Sort by
+      </span>
+      <select value={key} onChange={(e) => pick(e.target.value)} aria-label="Sort by">
+        {columns.map(([k, l]) => (
+          <option key={k} value={k}>
+            {l}
+          </option>
+        ))}
+      </select>
+      <button type="button" className={`cs-dir ${dir}`} onClick={flip} title={`${dirText(key, dir)} — click to reverse`} aria-label={`Direction: ${dirText(key, dir)}. Click to reverse`}>
+        <Icon name={dir === 'asc' ? 'sortUp' : 'sortDown'} size={15} />
+        <span>{dirText(key, dir)}</span>
+      </button>
+    </div>
   );
 }
 
@@ -283,40 +389,41 @@ function Summary({ list, total, stage }) {
   }, [list]);
   const n = list.length;
   const vendor = stage === 'vendor';
+  const pct = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0);
+  const marginPct = t.marginBase ? Math.round((t.margin / t.marginBase) * 100) : null;
+  const tiles = [
+    { k: 'n', icon: 'creators', label: 'Creators', value: fmtNum(n), sub: n !== total ? `of ${fmtNum(total)} shown by the filters` : 'all creators here', bar: total ? pct(n, total) : 0 },
+    { k: 'f', icon: 'activity', label: 'Total followers', value: fmtCompact(t.followers), sub: n ? `${fmtCompact(Math.round(t.followers / n))} on average` : '—' },
+    { k: 'c', icon: 'wallet', label: vendor ? 'Your cost' : 'Cost', value: fmtINR(t.cost), sub: !n ? '—' : t.costN === n ? `${fmtINR(Math.round(t.cost / n))} on average` : `${fmtNum(n - t.costN)} without a cost`, bar: pct(t.costN, n), warn: t.costN < n },
+  ];
+  if (!vendor) {
+    tiles.push({ k: 'p', icon: 'target', label: 'Price', value: fmtINR(t.price), sub: !n ? '—' : t.priceN === n ? 'every creator priced' : `${fmtNum(n - t.priceN)} without a price`, bar: pct(t.priceN, n), warn: t.priceN < n });
+    tiles.push({
+      k: 'm',
+      icon: 'sparkles',
+      label: 'Margin',
+      value: `${t.margin < 0 ? '−' : ''}${fmtINR(Math.abs(t.margin))}`,
+      sub: marginPct === null ? 'needs a cost and a price' : `${marginPct}% of price`,
+      bar: marginPct === null ? 0 : Math.max(0, Math.min(100, marginPct)),
+      neg: t.margin < 0,
+    });
+  }
   return (
     <div className="cs-sum" aria-label="Totals for the creators shown">
-      <div>
-        <small>Creators</small>
-        <b>{fmtNum(n)}</b>
-        {n !== total && <em>of {fmtNum(total)}</em>}
-      </div>
-      <div>
-        <small>Total followers</small>
-        <b>{fmtCompact(t.followers)}</b>
-        {n > 0 && <em>avg {fmtCompact(Math.round(t.followers / n))}</em>}
-      </div>
-      <div>
-        <small>{vendor ? 'Your cost' : 'Cost'}</small>
-        <b>{fmtINR(t.cost)}</b>
-        <em>{t.costN === n ? (n ? `avg ${fmtINR(Math.round(t.cost / Math.max(1, t.costN)))}` : '') : `${fmtNum(n - t.costN)} without`}</em>
-      </div>
-      {!vendor && (
-        <div>
-          <small>Price</small>
-          <b>{fmtINR(t.price)}</b>
-          <em>{t.priceN === n ? (n ? 'all priced' : '') : `${fmtNum(n - t.priceN)} without`}</em>
+      {tiles.map((x) => (
+        <div key={x.k} className={`cs-sum-t ${x.neg ? 'neg' : ''} ${x.warn ? 'warn' : ''}`}>
+          <small>
+            <Icon name={x.icon} size={13} /> {x.label}
+          </small>
+          <b>{x.value}</b>
+          <em>{x.sub}</em>
+          {x.bar !== undefined && (
+            <i className="cs-sum-bar" aria-hidden="true">
+              <span style={{ width: `${x.bar}%` }} />
+            </i>
+          )}
         </div>
-      )}
-      {!vendor && (
-        <div className={t.margin < 0 ? 'neg' : ''}>
-          <small>Margin</small>
-          <b>
-            {t.margin < 0 ? '−' : ''}
-            {fmtINR(Math.abs(t.margin))}
-          </b>
-          <em>{t.marginBase ? `${Math.round((t.margin / t.marginBase) * 100)}% of price` : 'needs cost + price'}</em>
-        </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -471,7 +578,7 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
       </div>
       {view.note && <p className="cs-note">{view.note}</p>}
       {stageAll.length > 0 && (
-        <div className="cs-bar2">
+        <div className={`cs-bar2 ${platforms.length > 1 ? '' : 'phone-only'}`}>
           {platforms.length > 1 && (
             <div className="seg cs-plat-seg" role="tablist" aria-label="Platform">
               <button type="button" role="tab" aria-selected={!plat} className={!plat ? 'on' : ''} onClick={() => (setPlat(''), setPicked(new Set()))}>
@@ -484,38 +591,17 @@ export default function CreatorsStage({ stage, items, campaignId, campaignName, 
               ))}
             </div>
           )}
-          <label className="cs-sortby">
-            <span>Sort by</span>
-            <select
-              value={sort ? `${sort.key}|${sort.dir}` : ''}
-              onChange={(e) => {
-                const [key, dir] = e.target.value.split('|');
-                setSort(key ? { key, dir } : null);
-              }}
-              aria-label="Sort by"
-            >
-              <option value="">Newest first</option>
-              {Object.entries(SORTS)
-                .filter(([k]) => k !== 'added' && (stage !== 'vendor' || !['price', 'margin', 'vendor'].includes(k)) && (k !== 'platform' || platforms.length > 1))
-                .flatMap(([k, [l]]) => [
-                  <option key={`${k}a`} value={`${k}|${['followers', 'cost', 'price', 'margin'].includes(k) ? 'desc' : 'asc'}`}>
-                    {l}: {['followers', 'cost', 'price', 'margin'].includes(k) ? 'high to low' : 'A → Z'}
-                  </option>,
-                  <option key={`${k}d`} value={`${k}|${['followers', 'cost', 'price', 'margin'].includes(k) ? 'asc' : 'desc'}`}>
-                    {l}: {['followers', 'cost', 'price', 'margin'].includes(k) ? 'low to high' : 'Z → A'}
-                  </option>,
-                ])}
-              <option value="added|asc">Oldest first</option>
-              {extras.flatMap((x) => [
-                <option key={`${x}a`} value={`x:${x}|asc`}>
-                  {x}: A → Z
-                </option>,
-                <option key={`${x}d`} value={`x:${x}|desc`}>
-                  {x}: Z → A
-                </option>,
-              ])}
-            </select>
-          </label>
+          <SortBar
+            className="phone-only"
+            sort={sort}
+            setSort={setSort}
+            columns={[
+              ...Object.entries(SORTS)
+                .filter(([k]) => (stage !== 'vendor' || !['price', 'margin', 'vendor'].includes(k)) && (k !== 'platform' || platforms.length > 1))
+                .map(([k, [l]]) => [k, k === 'cost' && stage === 'vendor' ? 'Your cost' : l]),
+              ...extras.map((x) => [`x:${x}`, x]),
+            ]}
+          />
         </div>
       )}
       {stageAll.length > 0 && <Summary list={shown} total={inStage.length} stage={stage} />}

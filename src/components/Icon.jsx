@@ -53,6 +53,10 @@ const PATHS = {
   upload: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12',
   chevronLeft: 'M15 18l-6-6 6-6',
   chevronDown: 'M6 9l6 6 6-6',
+  // sorting: both directions (not sorted), up (A→Z / low→high), down (Z→A / high→low)
+  sortBoth: 'M7 20V4 M3 8l4-4 4 4 M17 4v16 M13 16l4 4 4-4',
+  sortUp: 'M12 19V5 M6 11l6-6 6 6',
+  sortDown: 'M12 5v14 M18 13l-6 6-6-6',
   more: 'M5 12h.01 M12 12h.01 M19 12h.01',
   key: 'M21 2l-2 2 M15.5 7.5l3 3L22 7l-3-3 M11.4 11.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8z M11.4 11.6 19 4',
   rocket: 'M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z M12 15l-3-3a22 22 0 0 1 2-3.9A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22.4 22.4 0 0 1-4 2z M9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0 M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5',
